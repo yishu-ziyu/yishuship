@@ -1,5 +1,5 @@
 {
-  "description": "Ship plugin hooks — lightweight Ship routing hint and workflow quality gates",
+  "description": "yishuship hooks — Ship engineering gates + PM workflow enforcement",
   "hooks": {
     "SessionStart": [
       {
@@ -17,6 +17,10 @@
           {
             "type": "command",
             "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/phase-guardrail.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/pm-gate.sh"
           }
         ]
       }
@@ -27,6 +31,10 @@
           {
             "type": "command",
             "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/stop-gate.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/pm-verify.sh"
           }
         ]
       }
