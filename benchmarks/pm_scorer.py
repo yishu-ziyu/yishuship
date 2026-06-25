@@ -33,12 +33,21 @@ def _count_list_items(text: str, section_pattern: str) -> int:
 
 def _count_table_rows(text: str, header_pattern: str) -> int:
     """统计表格数据行数（不含表头和分隔线）。"""
-    table = re.search(rf'{header_pattern}.*?\n(\|.*?\n)+', text, re.DOTALL | re.IGNORECASE)
-    if not table:
-        return 0
-    rows = [l for l in table.group().strip().split('\n')
-            if l.startswith('|') and '---' not in l]
-    return max(0, len(rows) - 1)  # 减去表头
+    lines = text.split('\n')
+    in_table = False
+    count = 0
+    for line in lines:
+        stripped = line.strip()
+        if not in_table:
+            if re.search(header_pattern, stripped, re.IGNORECASE) and stripped.startswith('|'):
+                in_table = True
+        else:
+            if stripped.startswith('|'):
+                if '---' not in stripped:
+                    count += 1
+            else:
+                break
+    return count
 
 
 # ── 阶段 1：发现（Discover）──────────────────────
@@ -53,16 +62,16 @@ def score_user_persona(text: str) -> float:
 
 def score_existing_solution(text: str) -> float:
     """现有方案描述：0=无 1=提到 2=有描述 3=有具体工具名。"""
-    if not re.search(r'现有方案|当前方案|目前.*解决|alternative', text, re.I):
+    if not re.search(r'现有方案|当前方案|目前.*解决|alternative|现在.*解决|现有.*方式|现状|聊天式|手动', text, re.I):
         return 0.0
-    has_desc = bool(re.search(r'通过.*方式|使用.*方法|流程.*是', text, re.I))
-    has_tool = bool(re.search(r'[A-Z][a-zA-Z]+\s*(API|SDK|Tool|平台|工具)|https?://', text))
+    has_desc = bool(re.search(r'通过.*方式|使用.*方法|流程.*是|方式|做法|方案', text, re.I))
+    has_tool = bool(re.search(r'[A-Z][a-zA-Z]+\s*(API|SDK|Tool|平台|工具)|https?://|[a-z]+\.(com|cn|io|dev)', text))
     return 1.0 + float(has_desc) + float(has_tool)
 
 
 def score_problem_evidence(text: str) -> float:
     """问题证据：0=无 1=主观 2=一个来源 3=2+来源。"""
-    sources = _count_pattern(text, r'https?://|根据.*数据|用户.*反馈|调研.*显示|报告.*指出')
+    sources = _count_pattern(text, r'https?://|[a-z]+\.(com|cn|io|dev|org)|根据.*数据|用户.*反馈|调研.*显示|报告.*指出|来源[:：]|\(来源|调查显示|数据.*显示')
     if sources >= 2: return 3.0
     if sources >= 1: return 2.0
     if re.search(r'我觉得|应该|可能|也许', text, re.I): return 1.0
@@ -80,7 +89,7 @@ def score_competitor_count(text: str) -> float:
 
 def score_competitor_depth(text: str) -> float:
     """竞品分析深度：0=无 1=列名称 2=有方案 3=方案+优劣+评价。"""
-    table = re.search(r'\| 竞品.*?\n(\|.*?\n)+', text, re.DOTALL | re.IGNORECASE)
+    table = re.search(r'^\|.*?竞品.*?$\n(\|.*?$\n)+', text, re.MULTILINE | re.IGNORECASE)
     if not table:
         return 0.0
     header = table.group().split('\n')[0].lower()
