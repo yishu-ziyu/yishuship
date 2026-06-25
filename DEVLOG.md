@@ -202,11 +202,10 @@ best_skill.md（优化后的 skill 文档）
 
 ```
 yishuship/
-├── .claude-plugin/           Claude Code 插件元数据
-├── skills/                   12 个 skill
+├── .claude-plugin/           Claude Code 插件元数据 + marketplace.json
+├── skills/                   13 个 skill（pm-eval 已移到 benchmarks）
 │   ├── use-yishuship/        路由脑（入口）
-│   ├── pm-intake/            PM 全流程 8 阶段（387 行）
-│   ├── pm-eval/              评分标准 63 维度
+│   ├── pm-intake/            PM 全流程（130 行，Step 0-5 顺序执行）
 │   ├── design/               对抗式设计（原版 Ship）
 │   ├── dev/                  实现（原版 Ship）
 │   ├── e2e/                  E2E 测试固化
@@ -214,34 +213,82 @@ yishuship/
 │   ├── qa/                   独立 QA
 │   ├── refactor/             四镜头扫描
 │   ├── handoff/              PR + CI fix loop
+│   ├── auto/                 全流程状态机
 │   ├── arch-design/          系统设计
 │   ├── visual-design/        DESIGN.md 视觉系统
 │   └── write-docs/           文档生成
-├── benchmarks/               SkillOpt 训练数据
-│   ├── pm_scorer.py          63 个评分函数
+├── benchmarks/               SkillOpt 训练数据 + 评分框架
+│   ├── pm_scorer.py          63 个评分函数（已验证 25/27）
+│   ├── pm-eval-spec/         评分标准文档（从 skills/ 移出）
 │   ├── skillopt-env/         SkillOpt benchmark 适配器
 │   └── yishuship_split/      train/val/test 数据
-├── hooks/                    质量门 hooks
-├── scripts/                  状态机脚本
-├── AGENTS.md                 仓库说明
-└── README.md                 安装指南
+├── hooks/
+│   ├── hooks.json            4 个 hook（phase-guardrail + pm-gate + stop-gate + pm-verify）
+│   └── ...
+├── scripts/
+│   ├── pm-gate.sh            PreToolUse: 工程层调用前检查 PM 产出物
+│   ├── pm-verify.sh          Stop: PM 产出未完成时阻止退出
+│   ├── pm-init.sh            初始化 PM 工作流
+│   ├── phase-guardrail.sh    PreToolUse: QA/Review 独立性保护
+│   ├── stop-gate.sh          Stop: 任务未完成阻止退出
+│   └── ...
+├── AGENTS.md
+├── README.md
+└── DEVLOG.md
 ```
 
 ---
 
-## 与原版 Ship 的区别
+## 2026-06-26 — 强制执行机制 + 端到端验证
 
-| 维度 | 原版 Ship | yishuship |
-|------|----------|-----------|
-| 定位 | 工程 harness | PM + 工程一体化 |
-| 入口 | `/ship:use-ship` | `/yishuship:use-yishuship` |
-| 新功能 | 直接进 design | **先走 pm-intake（8 阶段）** |
-| 竞品调研 | 无 | pm-intake 内置 |
-| 决策记录 | 无 | 自动沉淀 DEC-NNNN |
-| 评分框架 | 无 | 63 维度 pm_scorer |
-| 自动优化 | 无 | SkillOpt 训练循环 |
-| 设计 | 对抗式 | 同原版 |
-| 实现 | host + peer | 同原版 |
+### 问题发现
+
+用户指出：skill 文档只是"建议"，agent 可以无视。需要强制执行机制。
+
+同时发现 pm-eval（评分标准）不应该放在 skills/ 里——它是 SkillOpt 的损失函数，不是 agent 用的 skill。这是一个结构性错误。
+
+### 修复
+
+1. **pm-intake 重写**：从 387 行精简到 130 行，增加明确的 Step 0-5 顺序执行流程
+   - Step 0: 初始化（创建 pm-state.yaml + 任务目录）
+   - Step 1: 发现 → 写 01-discovery.md
+   - Step 2: 定义 → 写 02-definition.md
+   - Step 3: 设计 → 写 03-design.md
+   - Step 4: 验证 → 写 04-validation.md
+   - Step 5: 交接
+   - 每步必须写文件 + 更新状态，不写不算完成
+
+2. **PM 强制 hooks**：
+   - `pm-gate.sh`：PreToolUse hook，没有 discovery.md 就不能调 /yishuship:design
+   - `pm-verify.sh`：Stop hook，PM 产出没写完就阻止会话退出
+
+3. **pm-init.sh**：独立初始化脚本，一键创建 PM 工作流
+
+4. **pm-eval 移到 benchmarks/**：从 skills/ 移到 benchmarks/pm-eval-spec/
+
+5. **pm_scorer 正则修复**：
+   - score_existing_solution: 扩展关键词（现状/聊天式/手动）
+   - score_problem_evidence: 支持无协议前缀的 URL
+   - _count_table_rows: 从正则改为逐行扫描，修复加粗表头匹配
+
+### 端到端测试
+
+用真实 agent 执行 pm-intake Step 1（发现阶段），场景：yishuship 项目本身需要端到端测试流程。
+
+**结果**：
+- agent 成功读取 skill 并按模板执行
+- 产出 01-discovery.md 质量 25/27（合格线 17）
+- pm-state.yaml 自动更新为 phase: define
+- 竞品扫描覆盖 4 个真实竞品（heliohq/ship、Cursor Plan Mode、GitHub Copilot Workspace、OpenAI Symphony）
+
+**结论**：pm-intake 可以被 agent 执行，产出质量达标。
+
+### 插件安装
+
+- 创建 marketplace.json 支持本地安装
+- yishuship@yishuship v0.1.0 已安装并启用
+- 旧 ship@heliohq 插件已删除
+- 旧 ~/.claude/skills/ship/ 目录已清理
 
 ---
 
@@ -249,6 +296,6 @@ yishuship/
 
 - [ ] 运行 SkillOpt 训练循环，优化 seed skill
 - [ ] 补全 PM 场景数据集（当前 12 个，目标 50+）
-- [ ] 添加阶段 4-8 的更多评分维度
+- [ ] 用 yishuship 完整流程做一个真实产品功能（端到端验证 PM→工程全流程）
 - [ ] 集成 SkillOpt-Sleep（夜间自动优化）
-- [ ] 推到 GitHub，开放安装
+- [ ] 补全 pm-intake Step 2-5 的端到端测试
