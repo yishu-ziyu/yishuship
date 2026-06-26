@@ -55,25 +55,31 @@ export AZURE_OPENAI_API_KEY="..."
 export AZURE_OPENAI_ENDPOINT="https://your-resource.openai.azure.com/"
 ```
 
-### 选项 B：Claude via Claude Code CLI（推荐，本机已装 claude）
+### 选项 B：MiniMax M3 via Claude Code CLI（**本机推荐**，已购套餐不计费）
+
+> SkillOpt 自带的 `minimax_chat` 后端走 OpenAI 协议，与本机 MiniMax 的 Anthropic 协议不兼容。最简方案：用 `claude_chat` 后端让本地 `claude` CLI 路由到 MiniMax M3。
 
 ```bash
+# 1. 确认环境
+env | grep ANTHROPIC_AUTH_TOKEN  # 应有 token
+env | grep ANTHROPIC_BASE_URL    # 应是 https://api.minimaxi.com/anthropic
+which claude                      # 应在 PATH
+
+# 2. 跑基线评估
+cd /tmp/skillopt
 export OPTIMIZER_BACKEND=claude_chat
 export TARGET_BACKEND=claude_chat
-export OPTIMIZER_DEPLOYMENT=claude-sonnet-4-6
-export TARGET_DEPLOYMENT=claude-sonnet-4-6
+export OPTIMIZER_DEPLOYMENT=MiniMax-M3
+export TARGET_DEPLOYMENT=MiniMax-M3
+
+python scripts/eval_only.py \
+  --config configs/yishuship/default.yaml \
+  --skill skillopt/envs/yishuship/skills/initial.md \
+  --split_dir /Users/mahaoxuan/Developer/yishuship/benchmarks/yishuship_split \
+  --out_root outputs/eval_seed_$(date +%Y%m%d_%H%M%S)
 ```
 
-注意：`claude_chat` 后端调用本地 `claude` CLI，需要 Claude Code 处于登录态。
-
-### 选项 C：MiniMax（已购套餐）
-
-```bash
-export OPTIMIZER_BACKEND=minimax_chat
-export TARGET_BACKEND=minimax_chat
-export MINIMAX_API_KEY="${MINIMAX_API_KEY}"
-export MINIMAX_BASE_URL="${MINIMAX_BASE_URL:-https://api.minimax.io/v1}"
-```
+跑通后，把 `eval_only` 换成 `python scripts/train.py ...` 跑训练（其他参数不变）。
 
 ## 预期成本与时长
 
@@ -82,7 +88,7 @@ export MINIMAX_BASE_URL="${MINIMAX_BASE_URL:-https://api.minimax.io/v1}"
 - **训练循环**：3 epochs × 16 train / 4 batch_size = 12 步 + 每步 minibatch analyst 调用
 - **总 LLM 调用估算**：~50-100 次（target 推理）+ 30-60 次（optimizer 分析）
 - **时长**：取决于后端延迟，Azure OpenAI 通常 30-60 分钟；Claude Code CLI 走本机可更快
-- **成本估算**：Azure OpenAI GPT-5.5 约 $0.50-$2.00；Claude Sonnet 约 $0.30-$1.00；MiniMax 已购套餐不计费
+- **成本估算**：Azure OpenAI GPT-5.5 约 $0.50-$2.00；Claude Sonnet 约 $0.30-$1.00；MiniMax M3 已购套餐不计费
 
 ## 评分体系
 
