@@ -1,0 +1,16 @@
+product_type: B
+primary_user: "The user and AI coding agents working across Claude Code sessions"
+buyer_or_user: "Same person: the user owns the workflow and uses Claude Code directly"
+core_scene: "Keeping yishuship, Claude Code plugin exposure, project state, and durable memory synchronized with low delay"
+workflow_weight:
+  strategy: required
+  research: required
+  data_model: required
+  permission: optional
+  report: required
+  analytics: optional
+skip_rules:
+  - checkpoint: operations
+    reason: "No launch operation loop is needed for this small internal infrastructure unless the user asks for ongoing automation."
+  - checkpoint: iteration_analytics
+    reason: "No usage analytics source exists yet; use manual verification and memory updates first."

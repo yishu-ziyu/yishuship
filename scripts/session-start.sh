@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Ship plugin - minimal SessionStart hint.
+# yishuship plugin - minimal SessionStart hint.
 #
 # Keep this hook deliberately small. It should only remind the host agent to
-# consult /ship:use-ship for Ship routing. Do not inject docs indexes, design
-# pointers, memory, or production artifact content here.
+# consult /yishuship:use-yishuship for yishuship routing. Do not inject docs
+# indexes, design pointers, memory, or production artifact content here.
 
 set -u
 
@@ -11,12 +11,19 @@ set -u
 INPUT=$(cat || true)
 : "$INPUT"
 
-PARTS="<SHIP_ROUTING>
-Ship is available in this repo. At the beginning of the session, consult /ship:use-ship when the user's request may need Ship process.
-- If the user names a specific /ship:* command, follow that command directly.
-- If the request is unrelated to software delivery, do not use Ship.
-- Do not start /ship:auto unless the user explicitly asks for full end-to-end delivery.
-</SHIP_ROUTING>"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+SYNC_STATUS=""
+if [ -f "$SCRIPT_DIR/sync-local.sh" ]; then
+  SYNC_STATUS=$(bash "$SCRIPT_DIR/sync-local.sh" --check 2>/dev/null | grep -E '^(repo_head|installed_plugin|skill_links|working_tree|update_needed):' || true)
+fi
+
+PARTS="<YISHUSHIP_ROUTING>
+yishuship is available in this repo. At the beginning of the session, consult /yishuship:use-yishuship when the user's request may need yishuship process.
+- If the user names a specific /yishuship:* command, follow that command directly.
+- If the request is unrelated to software delivery, do not use yishuship.
+- Do not start /yishuship:auto unless the user explicitly asks for full end-to-end delivery.
+$SYNC_STATUS
+</YISHUSHIP_ROUTING>"
 
 if ! command -v jq >/dev/null 2>&1; then
   exit 0

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -u
-# Ship workflow stop gate — outer verifier for /ship:auto.
+# yishuship workflow stop gate - outer verifier for /yishuship:auto.
 #
 # Logic:
 #   1. No active auto state → allow exit

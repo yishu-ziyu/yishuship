@@ -1,0 +1,85 @@
+checkpoints:
+  - id: 0
+    name: product_type
+    status: required
+    reason: "This is B-side workflow infrastructure for one owner and many AI agents."
+  - id: 1
+    name: brd
+    status: required
+    reason: "The work prevents stale plugin and process drift."
+  - id: 2
+    name: mrd
+    status: optional
+    reason: "No market comparison is needed beyond original Ship and local Claude Code behavior."
+  - id: 3
+    name: scenario_research
+    status: required
+    reason: "Must inspect current local plugin, repo, and session behavior."
+  - id: 4
+    name: current_state
+    status: required
+    reason: "The bug is specifically current-state drift between repo and local install."
+  - id: 5
+    name: problem_summary
+    status: required
+    reason: "Need a precise drift problem statement."
+  - id: 6
+    name: solution_idea
+    status: required
+    reason: "Need a small durable sync design."
+  - id: 7
+    name: product_solution
+    status: required
+    reason: "The solution must define user-facing collaboration behavior."
+  - id: 8
+    name: product_blueprint
+    status: required
+    reason: "Must separate immediate refresh from stable upkeep."
+  - id: 9
+    name: data_model
+    status: required
+    reason: "Need named state objects: repo head, plugin cache, skill links, project .ship state, memory."
+  - id: 10
+    name: flow_role
+    status: required
+    reason: "Need a clear user-Agent workflow."
+  - id: 11
+    name: interface_design
+    status: optional
+    reason: "No UI, but session-start text and command output need a small interface contract."
+  - id: 12
+    name: report_design
+    status: required
+    reason: "Need a concise health report for startup and manual checks."
+  - id: 13
+    name: tracking
+    status: optional
+    reason: "Manual timestamps and git heads are enough for now."
+  - id: 14
+    name: permission
+    status: optional
+    reason: "Uses local files and git pulls only; destructive operations still need confirmation."
+  - id: 15
+    name: prd
+    status: required
+    reason: "Engineering needs exact acceptance criteria."
+  - id: 16
+    name: technical_plan
+    status: required
+    reason: "Need concrete scripts and plugin metadata fixes."
+  - id: 17
+    name: project_management
+    status: required
+    reason: "Must decide what is done now and what remains follow-up."
+  - id: 18
+    name: delivery
+    status: required
+    reason: "Must produce verified local changes."
+  - id: 19
+    name: operations
+    status: N/A
+    reason: "No launch operations requested yet."
+  - id: 20
+    name: iteration_analytics
+    status: N/A
+    reason: "No telemetry pipeline requested."
