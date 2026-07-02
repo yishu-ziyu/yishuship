@@ -8,7 +8,7 @@ _BOOTSTRAP="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)/path-bootstrap.sh"
 # Ship phase guardrail — PreToolUse hook that enforces artifact access
 # rules per pipeline phase.
 #
-# Only active when .ship/ship-auto.local.md exists (Ship workflow running).
+# Only active when .ship/ship-auto.local.md exists (yishuship workflow running).
 # Only gates subagent calls (agent_id present), not the orchestrator itself.
 #
 # Rules:
@@ -62,11 +62,11 @@ if [ "$PHASE" = "qa" ]; then
   if [ "$TOOL" = "Read" ]; then
     case "$BASENAME" in
       review.md)
-        block "[Ship guardrail] QA phase cannot read review.md — breaks independence"
+        block "[yishuship guardrail] QA phase cannot read review.md — breaks independence"
         exit 0
         ;;
       plan.md)
-        block "[Ship guardrail] QA phase cannot read plan.md — breaks independence"
+        block "[yishuship guardrail] QA phase cannot read plan.md — breaks independence"
         exit 0
         ;;
     esac
@@ -81,7 +81,7 @@ if [ "$PHASE" = "review" ]; then
       *.ship/tasks/*/review.md) ;;  # review's own artifact
       *.ship/*) ;;                   # other .ship metadata
       *)
-        block "[Ship guardrail] Review phase cannot modify source code — report findings only"
+        block "[yishuship guardrail] Review phase cannot modify source code — report findings only"
         exit 0
         ;;
     esac
@@ -96,7 +96,7 @@ if [ "$PHASE" = "qa" ]; then
       *.ship/*) ;;              # other .ship metadata
       /tmp/*) ;;                # temp files
       *)
-        block "[Ship guardrail] QA phase cannot modify source code — report findings only"
+        block "[yishuship guardrail] QA phase cannot modify source code — report findings only"
         exit 0
         ;;
     esac
@@ -107,7 +107,7 @@ fi
 if [ "$TOOL" = "Write" ] || [ "$TOOL" = "Edit" ]; then
   case "$FILE_PATH" in
     *ship-auto.local.md)
-      block "[Ship guardrail] Only the orchestrator may modify .ship/ship-auto.local.md"
+      block "[yishuship guardrail] Only the orchestrator may modify .ship/ship-auto.local.md"
       exit 0
       ;;
   esac

@@ -281,7 +281,7 @@ Branch: $BRANCH
 $PR_READY_REASON
 
 The PR needs to be updated before the pipeline can complete.
-Sync with the base branch or resolve conflicts as needed, push, then resume /ship:auto."
+Sync with the base branch or resolve conflicts as needed, push, then resume /yishuship:auto."
         block_with_reason "$REASON" "Ship: PR not handoff-ready ($MERGE_STATE) — sync and resume"
         exit 0
       fi
@@ -299,11 +299,11 @@ Task: $TASK_ID
 Current phase: $PHASE
 Branch: $BRANCH
 
-Continue the active /ship:auto run from the current repo state and try again.
+Continue the active /yishuship:auto run from the current repo state and try again.
 
 Verifier output:
 $VERIFIER_OUTPUT"
-  block_with_reason "$REASON" "Ship verifier unavailable — continuing /ship:auto"
+  block_with_reason "$REASON" "yishuship verifier unavailable — continuing /yishuship:auto"
   exit 0
 fi
 
@@ -327,11 +327,11 @@ Task: $TASK_ID
 Current phase: $PHASE
 Branch: $BRANCH
 
-Continue the active /ship:auto run from the current state. Do not restart from scratch.
+Continue the active /yishuship:auto run from the current state. Do not restart from scratch.
 
 Missing work:
 $MISSING"
-    block_with_reason "$REASON" "Ship verifier: task incomplete — continue /ship:auto"
+    block_with_reason "$REASON" "yishuship verifier: task incomplete — continue /yishuship:auto"
     exit 0
     ;;
   *)
@@ -339,11 +339,11 @@ $MISSING"
 Task: $TASK_ID
 Current phase: $PHASE
 
-Continue the active /ship:auto run and try again.
+Continue the active /yishuship:auto run and try again.
 
 Verifier output:
 $VERIFIER_OUTPUT"
-    block_with_reason "$REASON" "Ship verifier returned an invalid verdict"
+    block_with_reason "$REASON" "yishuship verifier returned an invalid verdict"
     exit 0
     ;;
 esac

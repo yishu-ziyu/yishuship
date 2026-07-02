@@ -1,6 +1,5 @@
 ---
 name: dev
-version: 0.6.0
 description: >
   Implement from a spec or plan: extract stories, build in safe waves, test,
   commit, and get peer review per story. Use for "implement", "build/code this
@@ -19,12 +18,26 @@ allowed-tools:
   - mcp__codex__codex-reply
 ---
 
-# Ship: Implement
+# yishuship: Implement
 
 ```
 HOST IMPLEMENTS. PEER CROSS-VALIDATES.
 EVERY FINDING NEEDS FILE:LINE + EVIDENCE.
 ```
+
+Read `../.shared/matt-pocock-standard.md` before implementation. `/dev`
+inherits Matt's `implement` + `tdd` discipline: one vertical slice at a time,
+red before green at agreed seams, then review. Do not turn a vertical slice
+into horizontal layer batches.
+
+Before coding, read:
+
+- `../../vendor/mattpocock-skills/skills/engineering/implement/SKILL.md`
+- `../../vendor/mattpocock-skills/skills/engineering/tdd/SKILL.md`
+
+For hard bugs or performance regressions, also read
+`../../vendor/mattpocock-skills/skills/engineering/diagnosing-bugs/SKILL.md`
+before forming a fix hypothesis.
 
 ## Runtime Resolution
 
@@ -64,7 +77,8 @@ else to fix their code loses that context.
 
 | Gate | Condition | Fail action |
 |------|-----------|-------------|
-| Spec + plan read | Acceptance criteria extracted, TEST_CMD found | AskUserQuestion |
+| Spec + plan read | Acceptance criteria, vertical slices, test seams, and TEST_CMD extracted | AskUserQuestion |
+| Red → Green | Each behavior slice has a failing or red-capable check before implementation, unless explicitly impossible and documented | Add check or escalate |
 | Implement → Review | Story produced at least one commit (from subagent report, or HEAD moved since WAVE_BASE_SHA for single-story waves) | BLOCKED |
 | Review → Next story | Verdict is PASS or PASS_WITH_CONCERNS | Targeted fix (max 2) |
 | All stories → Done | Full test suite passes | Targeted fix for regression |
@@ -84,6 +98,8 @@ else to fix their code loses that context.
 - Reuse a reviewer dispatch across stories — fresh peer call each time
 - Let the peer reviewer become your coder — if the reviewer suggests a
   fix, YOU apply it; don't ask the reviewer to write patches
+- Write tests at unagreed seams or against implementation details
+- Use tautological expected values that recompute the implementation's result
 
 ---
 
@@ -129,13 +145,18 @@ TodoWrite([
 2. Read **implementation stories** (from plan file, or single story for small tasks).
    Accept any heading format: `## Story N`, `## Step N`, `## N. Title`,
    or numbered/bulleted lists. Normalize as ordered stories.
-3. Detect the repo's test command by inspecting project root
+3. Read `CONTEXT.md` and relevant decisions if they exist, so code, tests,
+   and commit messages use the project's domain language.
+4. Extract or confirm **test seams**. Prefer the highest existing public seam
+   that verifies behavior. If no seam exists, record the missing seam and
+   route the design/refactor concern instead of faking a low-value test.
+5. Detect the repo's test command by inspecting project root
    (`Makefile`, `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`,
    CI configs, `CLAUDE.md`/`AGENTS.md`). If none found, AskUserQuestion.
    Record as `TEST_CMD`.
-4. Extract code conduct from `CLAUDE.md`, `AGENTS.md`, lint/formatter
+6. Extract code conduct from `CLAUDE.md`, `AGENTS.md`, lint/formatter
    configs, and existing code patterns. Record as `CODE_CONDUCT`.
-5. **Build pattern references.** For each story, find the closest
+7. **Build pattern references.** For each story, find the closest
    analogous implementation before anyone writes code:
    - Search adjacent directories, feature folders, test folders, and
      shared component/module areas for similar files. Read the full
@@ -155,7 +176,7 @@ TodoWrite([
    Pattern references are evidence, not copy-paste licenses. Mirror the
    local structure and conventions, but do not clone product-specific
    logic, stale bugs, or unrelated behavior.
-6. **Build story dependency graph.** For each story, identify:
+8. **Build story dependency graph.** For each story, identify:
    - Files/modules it will create or modify (from plan text)
    - Explicit dependencies (e.g., "uses the model from story 1")
    - Shared resources (e.g., two stories both modify the same config file)
@@ -193,6 +214,9 @@ adds new pattern evidence:
 
 ## Test Command
 <TEST_CMD>
+
+## Test Seams
+<agreed public seams and the first red-capable check per slice>
 
 ## Code Conduct
 <CODE_CONDUCT>
@@ -448,53 +472,8 @@ Use `[Dev]` prefix:
 
 ## Example Workflow
 
-Condensed. The full flow repeats implement → review → (fix) → next per
-story.
-
-```
-[Dev] Starting — 5 stories, test cmd: npm test
-[Dev] Pattern references:
-  Story 1 "User model" -> models/account.ts, tests/models/account.test.ts
-  Story 2 "Product model" -> models/catalog-item.ts
-[Dev] Dependency analysis:
-  Wave 1: [Story 1 "User model", Story 2 "Product model"] ← parallel
-  Wave 2: [Story 3 "User API", Story 4 "Product API"]     ← parallel
-  Wave 3: [Story 5 "Auth middleware"]                      ← single-story
-
-═══ Wave 1 (parallel, 2 stories, same branch) ═══════════
-
-[Dev] WAVE_BASE_SHA = abc1234. Dispatching 2 Agent subagents
-      in parallel (same cwd — dependency analysis says their files
-      don't overlap).
-      Story 1 subagent: DONE — edited models/user.ts, committed abc5
-      Story 2 subagent: DONE — edited models/product.ts, committed abc6
-[Dev] Peer reviews each story's commits — both PASS.
-
-═══ Wave 2 (parallel, 2 stories) ═══════════════════════
-
-[Dev] Subagents implement stories 3, 4 in parallel on same branch.
-      Story 3 subagent: DONE — routes/users.ts
-      Story 4 subagent: DONE — routes/products.ts
-[Dev] Peer reviewer → Story 3 FAIL: missing input validation.
-[Dev] Dispatching a fresh subagent to fix Story 3 (whoever implemented
-      it, fixes it — here that role is a new subagent with the original
-      story + the FAIL findings).
-      Fix subagent: DONE — commit abc9, TEST_CMD PASS.
-[Dev] Re-dispatch peer reviewer for Story 3 → PASS (round 2/2).
-[Dev] Story 4 → PASS (same review batch).
-
-═══ Wave 3 (single story) ══════════════════════════════
-
-[Dev] I implement Story 5 directly. Commit, TEST_CMD → PASS.
-[Dev] Peer reviewer → PASS_WITH_CONCERNS ("jwt secret hardcoded in test
-      fixtures"). Appending to concerns.md.
-
-── Phase 3: Cross-Story Regression ──────────────────────
-
-[Dev] I run the full test suite: npm test → PASS (47 tests).
-
-[Dev] DONE_WITH_CONCERNS — 5/5 stories, 3 waves, 1 concern recorded.
-```
+Read `references/example-workflow.md` only when you need a concrete example of
+the wave loop shape.
 
 ## Error Handling
 

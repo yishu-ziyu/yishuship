@@ -10,6 +10,16 @@ description: >
 
 All structured docs live under `docs/`. Each subdirectory is a category (e.g., `docs/design/`, `docs/guides/`, `docs/troubleshooting/`). Follow this standard when creating new docs or modifying existing ones.
 
+For non-trivial product or engineering docs, read
+`../.shared/matt-pocock-standard.md` before writing. If the doc captures domain
+language, also read
+`../../vendor/mattpocock-skills/skills/engineering/domain-modeling/SKILL.md`.
+If the doc is a cross-session continuation, also read
+`../../vendor/mattpocock-skills/skills/productivity/handoff/SKILL.md`.
+Preserve the flow's durable memory: resolved domain terms belong in
+`CONTEXT.md`; hard-to-reverse, surprising, or trade-off-heavy choices belong in
+`docs/decisions/`; architecture and interface choices belong in `docs/design/`.
+
 ## Red Flag
 
 **Never:**
@@ -21,6 +31,8 @@ All structured docs live under `docs/`. Each subdirectory is a category (e.g., `
 - Mark a doc as `current` without verifying claims against code
 - Skip the Boundaries section in design docs — it's the core anti-drift mechanism
 - Use a duplicate number within a category
+- Leave project vocabulary or architectural decisions only in chat when the
+  workflow has resolved them
 
 ## Frontmatter (Required)
 
@@ -177,6 +189,13 @@ Before marking a doc as `current`, verify key claims against code:
 - Does the described architecture match the actual service boundaries?
 
 Update `last_modified` when you complete verification.
+
+## Completion Gate
+
+Done means every created or updated doc has valid frontmatter, verified claims,
+current `last_modified`, and the docs index has been regenerated. If a claim
+cannot be verified against code or source artifacts, mark the doc `draft` or
+return `BLOCKED`; do not label it `current`.
 
 ## Execution Handoff
 

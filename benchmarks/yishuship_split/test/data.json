@@ -69,5 +69,23 @@
       "代价",
       "约束"
     ]
+  },
+  {
+    "id": "flow_test_001",
+    "scenario": "用户说：我想做一个给律师用的合同审查 Copilot，从想法到上线你帮我全包。",
+    "stage": "matt-flow",
+    "context": "这是全新产品方向。没有目标用户细分、工作流、PRD、验收标准、测试计划或发布计划。",
+    "expected_flow": {
+      "required": ["alignment", "shared_language", "prd_test_seams", "vertical_slices", "tdd", "two_axis_review", "handoff"]
+    }
+  },
+  {
+    "id": "flow_test_002",
+    "scenario": "已有 issue：导入 CSV 后要展示错误行预览。用户说不要糊弄，按高质量把这个 issue 做完。",
+    "stage": "matt-flow",
+    "context": "issue 包含验收标准，但没有拆实现切片。功能涉及文件解析、错误模型、UI table 和 E2E。",
+    "expected_flow": {
+      "required": ["vertical_slices", "tdd", "two_axis_review", "handoff"]
+    }
   }
 ]

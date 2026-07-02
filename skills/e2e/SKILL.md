@@ -1,6 +1,5 @@
 ---
 name: e2e
-version: 1.0.0
 description: >
   Add durable end-to-end tests for user/API-visible behavior. Detect or scaffold
   the E2E framework, write tests, run the app, and store evidence. Use for E2E,
@@ -16,7 +15,7 @@ allowed-tools:
   - AskUserQuestion
 ---
 
-# Ship: E2E
+# yishuship: E2E
 
 You are the first automated verification gate after dev. You write tests
 that prove the change's acceptance criteria hold, run them against a real
@@ -45,6 +44,19 @@ ONE GOOD TEST PER ACCEPTANCE CRITERION > FIVE NOISY ONES.
 MATCH THE REPO'S EXISTING STYLE BEFORE INVENTING A NEW ONE.
 ```
 
+## Matt Feedback Loop
+
+Before non-trivial E2E work, read `../.shared/matt-pocock-standard.md` and
+`../../vendor/mattpocock-skills/skills/engineering/tdd/SKILL.md`. This skill is
+the durable external-seam part of Matt's feedback loop:
+
+- Tests assert behavior through public UI/API/CLI surfaces, not internals.
+- Each vertical slice gets enough coverage to go red on its own regression.
+- The new/changed test runs first; the broader suite runs after the local loop
+  is green.
+- Expected values come from the spec, a fixture with known-good provenance, or
+  behavior the user/API caller can directly observe.
+
 ## Flow
 
 ```
@@ -70,6 +82,10 @@ MATCH THE REPO'S EXISTING STYLE BEFORE INVENTING A NEW ONE.
 - Leave services, containers, or browsers running after you finish.
 - Commit secrets into test fixtures. Use `.env.example` values or env vars.
 - Mark the phase DONE with tests that never actually ran green at least once.
+- Write tautological tests where the expected value is copied from the same
+  implementation being tested.
+- Add a broad E2E test for a horizontal layer when a vertical user/API flow can
+  prove the behavior more directly.
 
 ---
 
@@ -86,6 +102,8 @@ git diff "$BASE"...HEAD --name-only
 
 1. **Spec** — `<task_dir>/plan/spec.md` (acceptance criteria you must codify)
 2. **Diff** — what code actually changed, which flows it touches
+3. **Shared language** — `CONTEXT.md` when present, so selectors, fixtures, and
+   test names use the domain terms the project already settled
 
 That's it. In the staged workflow you run right after dev and before
 review/QA, so there is no earlier verification report to read. If you're

@@ -1,6 +1,5 @@
 ---
 name: pm-intake
-version: 1.0.0
 description: >
   Product Lifecycle Intake for yishuship V2. Keeps the /yishuship:pm-intake
   command name, but upgrades the internal workflow from a short PM preface into
@@ -18,32 +17,50 @@ allowed-tools:
 
 You are the product lifecycle owner. Your job is to turn an idea into a product handoff that engineering can safely execute.
 
-Read `../.shared/product-lifecycle-21.md` before producing artifacts. Do not duplicate the whole protocol in this skill; use it as the shared source of truth.
+Read `../.shared/product-lifecycle-21.md` and
+`../.shared/matt-pocock-standard.md` before producing artifacts. Do not
+duplicate those protocols in this skill; use them as shared sources of truth.
+
+Also read the relevant upstream Matt skills before executing their lane:
+
+- Always read `../../vendor/mattpocock-skills/skills/engineering/grill-with-docs/SKILL.md`.
+- Always read `../../vendor/mattpocock-skills/skills/productivity/grilling/SKILL.md`.
+- Always read `../../vendor/mattpocock-skills/skills/engineering/domain-modeling/SKILL.md`.
+- Read `../../vendor/mattpocock-skills/skills/engineering/to-prd/SKILL.md` before writing PRD/spec artifacts.
+- Read `../../vendor/mattpocock-skills/skills/engineering/prototype/SKILL.md` when a product/design question needs a runnable answer.
 
 ## Hard Rules
 
 - Keep `/yishuship:pm-intake` as the command name.
 - Do not send an idea directly to code.
 - Product type must be decided before strategy, research, PRD, or technical planning.
+- Misalignment is a product bug. If intent, domain language, or a decision branch is unresolved, ask the next blocking question before writing engineering handoff.
 - Treat the 21 items as checkpoints, not as 21 mandatory phases.
+- Maintain shared language: update or create `CONTEXT.md` when a domain term is resolved; record hard-to-reverse trade-offs in `docs/decisions/`.
+- If a question cannot be settled in conversation, route through a throwaway prototype and preserve only the answer in product artifacts.
 - Mark each checkpoint as `required`, `optional`, or `N/A` with a reason.
 - Growth artifacts are optional unless the user explicitly asks for launch, operation, data review, or next-iteration work.
 - If the task is a tiny bug fix with no product decision, route to `/yishuship:review` or `/yishuship:dev` instead of forcing lifecycle intake.
 
 ## Step 0: Initialize
 
-Create a task directory and state files:
+Create or reuse a task directory and state files.
+
+If the caller provides `task_id` and `task_dir` (for example from `/yishuship:auto`),
+reuse those exact values and do not create a separate timestamp task. If no
+task context is provided, initialize a new task:
 
 ```bash
-TASK_ID=$(date +%Y%m%d-%H%M%S)
-mkdir -p ".ship/tasks/$TASK_ID"/{input,product,delivery,growth,control,plan,e2e,qa}
+TASK_ID="${TASK_ID:-$(date +%Y%m%d-%H%M%S)}"
+TASK_DIR="${TASK_DIR:-.ship/tasks/$TASK_ID}"
+mkdir -p "$TASK_DIR"/{input,product,delivery,growth,control,plan,e2e,qa}
 cat > ".ship/pm-state.yaml" << EOF
 phase: product-type
 task_id: $TASK_ID
 created: $(date -Iseconds)
 workflow: product-lifecycle-v2
 EOF
-cat > ".ship/tasks/$TASK_ID/control/run_state.yaml" << EOF
+cat > "$TASK_DIR/control/run_state.yaml" << EOF
 task_id: $TASK_ID
 active: true
 current_phase: product-type
@@ -53,18 +70,34 @@ updated_at: "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 EOF
 ```
 
-Write the user's original idea to `.ship/tasks/$TASK_ID/input/idea.md`.
+Write the user's original idea to `$TASK_DIR/input/idea.md` unless it already
+exists. Preserve `$TASK_DIR/input/requirement.md` when it was created by
+`/yishuship:auto`.
 
 Create TodoWrite items:
 
 1. Product type
-2. Strategy and market
-3. Research and current state
-4. Problem and solution
-5. Product specification
-6. Technical and project plan
-7. Engineering handoff
-8. Optional growth loop
+2. Alignment and shared language
+3. Strategy and market
+4. Research and current state
+5. Problem and solution
+6. Product specification and test seams
+7. Technical and project plan
+8. Engineering handoff
+9. Optional growth loop
+
+## Alignment and Shared Language Gate
+
+Before Step 2 is complete, apply the vendored `grill-with-docs` /
+`domain-modeling` discipline:
+
+- Ask one decision question at a time when the next artifact depends on the answer.
+- Challenge vague or overloaded terms and propose canonical vocabulary.
+- Stress-test product relationships with concrete edge scenarios.
+- Cross-check local code/docs when user claims how an existing system works.
+- Update `CONTEXT.md` inline when a term is settled.
+- Create a decision record only when the trade-off is hard to reverse,
+  surprising without context, and chosen from real alternatives.
 
 ## Step 1: Product Type → `product/00-product-type.yaml`
 
@@ -91,7 +124,7 @@ skip_rules:
     reason:
 ```
 
-Also write `.ship/tasks/$TASK_ID/control/lifecycle-checklist.yaml` with all 21 checkpoints and their `required`, `optional`, or `N/A` status.
+Also write `$TASK_DIR/control/lifecycle-checklist.yaml` with all 21 checkpoints and their `required`, `optional`, or `N/A` status.
 
 Update `.ship/pm-state.yaml` to `phase: strategy`.
 
@@ -230,10 +263,18 @@ product/08-prd.md
 
 ## Acceptance Criteria
 
+## Testing Seams
+
+## Vertical Slice Candidates
+
 ## Edge Cases
 
 ## Out of Scope
 ```
+
+Testing seams follow Matt's `to-prd` standard: prefer the highest existing seam
+that verifies user-visible behavior; propose new seams only when existing ones
+cannot catch the important behavior.
 
 Update state to `phase: tech-project-plan`.
 
@@ -252,6 +293,10 @@ Cover checkpoints 16 and 17:
 
 ## Risks and Mitigations
 ```
+
+If the work is multi-session, include tracer-bullet vertical slices in the
+engineering handoff: each slice must be independently demoable or verifiable
+and must not be a horizontal layer-only task.
 
 If architecture selection is not settled, include the architecture decision here rather than routing to `/yishuship:arch-design`. Detailed architecture design can still go to `/yishuship:arch-design` after selection.
 
@@ -280,6 +325,26 @@ Required sections:
 For compatibility, also write or update `plan/spec.md` with the same engineering-facing acceptance criteria when the next phase is `/yishuship:design` or `/yishuship:auto`.
 
 Update state to `phase: complete` when handoff is ready.
+
+## Completion Gate
+
+Done means the V2 product handoff is complete in the same `$TASK_DIR`: all
+required checkpoints are marked in `control/lifecycle-checklist.yaml`, required
+product files exist under `product/`, `delivery/design-spec.md` bridges product
+to engineering, and `plan/spec.md` contains engineering-facing acceptance
+criteria. If any required checkpoint is unknown, mark the phase `BLOCKED` rather
+than inventing certainty.
+
+## [PM Intake] Report Card
+
+| Field | Value |
+|-------|-------|
+| Status | <DONE / BLOCKED> |
+| Product type | <C / B / hybrid> |
+| Required checkpoints complete | <N>/<N> |
+| Optional checkpoints skipped | <checkpoint + reason> |
+| Main evidence | <sources, examples, or assumptions> |
+| Handoff artifacts | `$TASK_DIR/delivery/design-spec.md`, `$TASK_DIR/plan/spec.md` |
 
 ## Step 8: Optional Growth Loop
 

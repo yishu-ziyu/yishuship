@@ -1,6 +1,5 @@
 ---
 name: review
-version: 0.2.1
 description: >
   Static code review of the active diff: trace changed paths and report concrete
   P1/P2/P3 correctness, security, or spec bugs with file:line evidence. Use for
@@ -14,17 +13,24 @@ allowed-tools:
   - AskUserQuestion
 ---
 
-# Ship: Review
+# yishuship: Review
 
 You are reviewing a changeset for correctness, security, data integrity,
 and spec compliance. This file is an operating contract for an AI
 reviewer. Keep the focus on review behavior, not workflow prose.
 
+Read `../.shared/matt-pocock-standard.md` and
+`../../vendor/mattpocock-skills/skills/engineering/code-review/SKILL.md` for
+the vendored two-axis review standard. yishuship review still reports concrete
+P1/P2/P3 bugs, but when a fixed point and spec/PRD are available, run Standards
+and Spec as separate axes before aggregating findings.
+
 ## Mission
 
 1. Find real bugs in the active change scope.
 2. Report findings first, ordered `P1`, then `P2`, then `P3`.
-3. Add a short diagnosis only if multiple findings share one root cause.
+3. Keep Standards and Spec findings separate when both axes are available.
+4. Add a short diagnosis only if multiple findings share one root cause.
 
 ## Red Flag
 
@@ -33,6 +39,7 @@ reviewer. Keep the focus on review behavior, not workflow prose.
 - Read only diff hunks — read full changed files
 - Report a concern without `file:line` and trigger
 - Report style nits, refactor wishes, or use `B1`/`B2` severity
+- Let Standards findings hide Spec failures, or Spec correctness hide Standards/code-smell failures
 - Ignore staged or unstaged work in standalone mode
 - Lead with philosophy instead of findings
 - Force a diagnosis when findings don't share one root cause
@@ -144,6 +151,20 @@ Check for:
 - reward-hacking style shortcuts that pass tests while violating task intent
 - fixture-coupled branches, hardcoded expected values, or harness edits that only exist to satisfy the current checks
 - cross-file inconsistencies from partial updates
+
+### 4b. Two-axis review when possible
+
+If a fixed point and spec/PRD are available, apply the vendored
+`code-review` structure:
+
+- **Standards axis**: compare the diff against documented repo standards plus
+  a Fowler-style smell baseline. Mark smell findings as judgement calls unless
+  the repo standard makes them hard violations.
+- **Spec axis**: compare the diff against the originating issue, PRD, or spec.
+  Flag missing requirements, scope creep, and implemented-but-wrong behavior.
+
+Keep the axes separate in notes, then convert concrete ship-impacting issues
+into yishuship P1/P2/P3 findings.
 
 ### 5. Rank findings
 

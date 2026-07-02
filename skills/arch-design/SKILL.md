@@ -1,12 +1,11 @@
 ---
 name: arch-design
-version: 0.2.0
 description: >
   Think through architecture, API/data design, service boundaries, trade-offs,
   and assumptions. Use for system design, ADRs, API plans, and architecture docs;
   then hand off to /yishuship:write-docs. Not visual or implementation planning.
-  v0.2.0 新增：入口分流——架构选型请走 /yishuship:pm-intake Step 1.5，
-  本 skill 假设架构已选定。如果用户意图模糊，先用 AskUserQuestion 确认。
+  Use /yishuship:pm-intake for architecture selection; this skill assumes the
+  architecture direction is already chosen.
 allowed-tools:
   - Read
   - Bash
@@ -37,6 +36,28 @@ allowed-tools:
 
 Think through system design decisions rigorously before writing them down. This skill is about the **thinking** — requirements, components, trade-offs, boundaries. When the design is ready, you MUST invoke `Skill("write-docs")` to write the design document — do not write the doc inline.
 
+## Matt Flow Layer
+
+Before architecture work that affects code structure, read
+`../.shared/matt-pocock-standard.md` and
+`../../vendor/mattpocock-skills/skills/engineering/codebase-design/SKILL.md`.
+When the work is rescuing an existing messy system, also read
+`../../vendor/mattpocock-skills/skills/engineering/improve-codebase-architecture/SKILL.md`.
+Use Matt's `codebase-design` vocabulary as the shared language for the design:
+
+- `module`: a unit that owns behavior behind an interface.
+- `interface`: the small surface other code depends on and tests through.
+- `implementation`: the hidden behavior behind that interface.
+- `depth`: how much useful behavior the module hides relative to interface size.
+- `seam`: a boundary where change, substitution, or testing can happen.
+- `adapter`: code that translates across a seam.
+- `leverage`: future change made cheaper by the design.
+- `locality`: how much of the system must be read or edited to make a change.
+
+This skill turns those concepts into a durable design doc. It does not replace
+`/yishuship:pm-intake`; if the product direction or architecture choice is still
+unsettled, route back there first.
+
 ## Scale to Complexity
 
 Not every decision needs all 5 phases. Match the depth to the decision:
@@ -54,6 +75,13 @@ Not every decision needs all 5 phases. Match the depth to the decision:
 - Skip the Boundaries section — it's the core anti-drift mechanism
 - Propose a design without verifying assumptions against the actual codebase
 - Conflate "what we want" with "what exists" — be explicit about the gap
+- Create a seam just because it feels tidy. A seam needs real leverage:
+  existing variation, likely near-term variation, or a test boundary that
+  materially improves feedback.
+- Design shallow modules where every caller still needs to understand the
+  implementation details.
+- Treat the design doc as finished without naming the public interface and
+  test surface for the modules it changes.
 
 ## Phase 1: Requirements Gathering
 
@@ -86,6 +114,8 @@ Map out the major components and how they interact.
 - **Data flow**: How data moves through the system — request paths, event flows, data pipelines. A sequence diagram helps for complex flows.
 - **API contracts**: Key interfaces between components. Define input/output shapes, not implementation.
 - **Storage choices**: Which database(s), why. Access patterns determine storage choice, not the other way around.
+- **Module depth**: For each important module, name the interface it exposes,
+  the behavior it hides, and why that boundary improves leverage or locality.
 
 ## Phase 3: Deep Dive
 
@@ -115,6 +145,8 @@ For each major decision:
 - **Pros and cons of each** (concrete, not vague)
 - **Why this choice won** (the deciding factor)
 - **What we're giving up** (be honest about costs)
+- **Interface cost** (when code structure changes) — what callers must learn,
+  what tests can now observe, and what implementation detail stays hidden.
 
 Common trade-off dimensions:
 - Consistency vs availability
@@ -141,8 +173,16 @@ When the design thinking is complete, the result should be written as a design d
 - **Boundaries section** (required) — what this design does NOT cover, what must not change without updating this doc. This is the core anti-drift mechanism.
 - **Trade-offs section** (recommended) — the alternatives considered and why this choice won.
 - **Assumptions section** (recommended) — what must be true for this design to hold (e.g., "assumes < 10k concurrent users", "assumes single-region deployment"). When assumptions change, the design is stale.
+- **Interfaces and test seams** (required when code changes) — the public
+  surfaces implementation should build and tests should verify.
 
 When the design thinking is complete, invoke `Skill("write-docs")` to write the design document with category `design`. Do not write the doc inline — the write-docs skill enforces frontmatter, numbering, and index generation.
+
+## Completion Gate
+
+Done means `Skill("write-docs")` has created or updated a managed document under
+`docs/design/` and the report card names that path. If the architecture direction
+is not chosen, this skill is `BLOCKED` and routes back to `/yishuship:pm-intake`.
 
 ## Execution Handoff
 
@@ -155,6 +195,7 @@ After writing the doc via write-docs, output the report card (read `skills/.shar
 |-------|-------|
 | Status | <DONE / BLOCKED> |
 | Summary | <one-line: what was designed and the key decision> |
+| Document | <docs/design/...> |
 
 ### Metrics
 | Metric | Value |

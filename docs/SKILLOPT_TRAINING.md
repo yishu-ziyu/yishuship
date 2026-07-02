@@ -1,117 +1,131 @@
 # SkillOpt 训练循环启动指南
 
-> 状态：种子 + 数据 + 评分器已就绪，等待用户运行
+> 状态：yishuship benchmark env、数据、评分器和同步脚本已就绪。
 
-## 已完成
+## SkillOpt 在这里训练什么
 
-| 改动 | 位置 |
+SkillOpt 不是插件运行时，也不是静态 lint。它把一个自然语言 skill 文档当成可训练状态：target model 用该 skill 完成任务，rollout 产出轨迹，`pm_scorer` 打分，optimizer 根据轨迹生成 bounded edits，候选 skill 只有在验证集 gate 上提升才被接受。
+
+yishuship 当前训练范围是 PM seed skill + Matt flow 路由矩阵：
+
+| 部件 | 位置 |
 |------|------|
-| pm_scorer 新增 arch-decision 5 维度（15 分） | `benchmarks/pm_scorer.py` |
-| pm-intake Step 1.5 架构选型子阶段 | `skills/pm-intake/SKILL.md` v0.4.0 |
-| 路由脑加架构选型入口 | `skills/use-yishuship/SKILL.md` v0.2.0 |
-| arch-design 入口分流 | `skills/arch-design/SKILL.md` v0.2.0 |
-| 种子 skill 包含 arch-decision 阶段说明 | `benchmarks/skillopt-env/initial.md` + `/tmp/skillopt/skillopt/envs/yishuship/skills/initial.md` |
-| 训练数据增加 4 个 arch-decision 例子 | `benchmarks/yishuship_split/{train,val,test}/` |
+| 初始 skill | `benchmarks/skillopt-env/initial.md` |
+| SkillOpt env | `benchmarks/skillopt-env/` |
+| 数据集 | `benchmarks/yishuship_split/{train,val,test}/` |
+| 评分器 | `benchmarks/pm_scorer.py`, `benchmarks/matt_flow_scorer.py` |
+| 同步脚本 | `scripts/sync-skillopt-env.sh` |
+
+默认配置使用 mixed validation gate：hard pass rate 和 soft score 各占 50%。原因是当前 seed skill 在小 test split 上可能已经 hard 饱和，单看 hard gate 会让训练没有可接受的提升空间。
+
+Matt flow 样本使用 `expected_flow.required` 做硬门。缺少任意 required 节点即 hard fail。当前节点包括：`alignment`、`shared_language`、`prd_test_seams`、`vertical_slices`、`tdd`、`two_axis_review`、`handoff`、`prototype`、`diagnosis`、`deep_module`。
 
 ## 数据规模
 
-| Split | 数量 | arch-decision |
-|-------|------|---------------|
-| train | 16 | 4 |
-| val | 5 | 1 |
-| test | 5 | 1 |
+| Split | 数量 | 用途 |
+|-------|------|------|
+| train | 22 | rollout + reflect + patch |
+| val | 7 | validation gate / selection |
+| test | 7 | held-out test |
 
-## 推荐运行命令
-
-### 评估基线（先跑一次看分数）
+## 安装到 SkillOpt checkout
 
 ```bash
-cd /tmp/skillopt
+git clone https://github.com/microsoft/SkillOpt.git /tmp/SkillOpt
+cd /Users/mahaoxuan/Developer/yishuship
+scripts/sync-skillopt-env.sh /tmp/SkillOpt
+```
+
+同步脚本会复制 env、prompts、seed skill、`pm_scorer`、数据和 config，并把 `yishuship` 注册进 SkillOpt 的 `scripts/train.py` / `scripts/eval_only.py`。
+
+## 本地结构检查
+
+```bash
+cd /tmp/SkillOpt
+python3 -m py_compile skillopt/envs/yishuship/*.py
+python3 - <<'PY'
+from skillopt.config import flatten_config, load_config
+from scripts import train
+
+cfg = flatten_config(load_config("configs/yishuship/default.yaml"))
+adapter = train.get_adapter(cfg)
+adapter.setup(cfg)
+print(type(adapter).__name__)
+print(len(adapter.dataloader.train_items), len(adapter.dataloader.val_items), len(adapter.dataloader.test_items))
+print(adapter.get_task_types())
+PY
+```
+
+## 评估基线
+
+需要配置 SkillOpt 支持的 target backend，例如 OpenAI/Azure/Claude/Qwen/MiniMax chat backend。
+
+```bash
+cd /tmp/SkillOpt
 python scripts/eval_only.py \
   --config configs/yishuship/default.yaml \
   --skill skillopt/envs/yishuship/skills/initial.md \
-  --split_dir /Users/mahaoxuan/Developer/yishuship/benchmarks/yishuship_split \
-  --out_root outputs/eval_seed_$(date +%Y%m%d_%H%M%S)
+  --split test \
+  --out_root outputs/yishuship/eval_seed_$(date +%Y%m%d_%H%M%S)
 ```
 
-### 训练（基线评估后启动）
+## 训练
 
 ```bash
-cd /tmp/skillopt
+cd /tmp/SkillOpt
 python scripts/train.py \
   --config configs/yishuship/default.yaml \
-  --split_dir /Users/mahaoxuan/Developer/yishuship/benchmarks/yishuship_split \
-  --skill_init /tmp/skillopt/skillopt/envs/yishuship/skills/initial.md
+  --cfg-options env.out_root=outputs/yishuship/train_$(date +%Y%m%d_%H%M%S)
 ```
 
-## LLM 后端选择
+关键输出：
 
-环境变量配置（`/tmp/skillopt/configs/_base_/default.yaml` 默认 Azure OpenAI）：
+- `outputs/.../history.json`
+- `outputs/.../best_skill.md`
+- `outputs/.../selection_eval_*`
+- `outputs/.../test_eval_*`
+- `outputs/.../steps/*/rollout/predictions/<id>/conversation.json`
 
-### 选项 A：Azure OpenAI（默认，需 `AZURE_OPENAI_API_KEY` + endpoint）
+## 推荐后端示例
 
-```bash
-export AZURE_OPENAI_API_KEY="..."
-export AZURE_OPENAI_ENDPOINT="https://your-resource.openai.azure.com/"
-```
-
-### 选项 B：MiniMax M3 via Claude Code CLI（**本机推荐**，已购套餐不计费）
-
-> SkillOpt 自带的 `minimax_chat` 后端走 OpenAI 协议，与本机 MiniMax 的 Anthropic 协议不兼容。最简方案：用 `claude_chat` 后端让本地 `claude` CLI 路由到 MiniMax M3。
+### MiniMax chat
 
 ```bash
-# 1. 确认环境
-env | grep ANTHROPIC_AUTH_TOKEN  # 应有 token
-env | grep ANTHROPIC_BASE_URL    # 应是 https://api.minimaxi.com/anthropic
-which claude                      # 应在 PATH
-
-# 2. 跑基线评估
-cd /tmp/skillopt
-export OPTIMIZER_BACKEND=claude_chat
-export TARGET_BACKEND=claude_chat
-export OPTIMIZER_DEPLOYMENT=MiniMax-M3
-export TARGET_DEPLOYMENT=MiniMax-M3
-
-python scripts/eval_only.py \
+export MINIMAX_API_KEY="..."
+cd /tmp/SkillOpt
+python scripts/train.py \
   --config configs/yishuship/default.yaml \
-  --skill skillopt/envs/yishuship/skills/initial.md \
-  --split_dir /Users/mahaoxuan/Developer/yishuship/benchmarks/yishuship_split \
-  --out_root outputs/eval_seed_$(date +%Y%m%d_%H%M%S)
+  --target_backend minimax_chat \
+  --optimizer_backend minimax_chat \
+  --minimax_model MiniMax-M2.7
 ```
 
-跑通后，把 `eval_only` 换成 `python scripts/train.py ...` 跑训练（其他参数不变）。
+### Claude chat
 
-## 预期成本与时长
-
-- **数据量**：12 train + 4 val（eval-only 不跑 train）
-- **每次 rollout**：1 次 LLM 调用（target 模型）输出 PM 文档
-- **训练循环**：3 epochs × 16 train / 4 batch_size = 12 步 + 每步 minibatch analyst 调用
-- **总 LLM 调用估算**：~50-100 次（target 推理）+ 30-60 次（optimizer 分析）
-- **时长**：取决于后端延迟，Azure OpenAI 通常 30-60 分钟；Claude Code CLI 走本机可更快
-- **成本估算**：Azure OpenAI GPT-5.5 约 $0.50-$2.00；Claude Sonnet 约 $0.30-$1.00；MiniMax M3 已购套餐不计费
-
-## 评分体系
-
-- 21 product lifecycle checkpoints × 3 quality dimensions × 3 points = 189 分
-- 质量维度包含：presence (是否存在)、evidence (是否有证据/推理)、actionability (是否可行动/闭环)
-- `pm_scorer.py` 内部保留了原版 `score_stage()` 和 `score_full_pipeline()`，同时新增了 lifecycle-native scoring 支持 21 检查点。
+```bash
+export ANTHROPIC_API_KEY="..."
+cd /tmp/SkillOpt
+python scripts/train.py \
+  --config configs/yishuship/default.yaml \
+  --target_backend claude_chat \
+  --optimizer_backend claude_chat
+```
 
 ## 验收标准
 
-- **基线（seed skill）**：
-  - train 阶段 8/9 阶段达标（17/27 discover, 19/30 define 等）
-  - arch-decision 新阶段 8/15（10/15 pass threshold 较难达）
-- **训练后**：
-  - 验证集分数提升 ≥ 5%
-  - arch-decision 通过率从 60% → 80%+
-  - skill 文件未被破坏，仍可读
+- baseline eval 能跑通，并写出 `rollouts.json` 和 per-task `conversation.json`。
+- train 至少跑完 1 个 epoch，不出现 env registry、prompt schema、scorer import 错误。
+- validation gate 接受的 `best_skill.md` 相比 seed skill 提升至少 5%。
+- test split 没有明显回退。
+- 人工审查确认 `best_skill.md` 没有硬编码单个场景。
 
 ## 故障排查
 
 | 现象 | 原因 | 解决 |
 |------|------|------|
-| `ModuleNotFoundError: pm_scorer` | yishuship benchmarks 未在 sys.path | `export PYTHONPATH=$PYTHONPATH:/Users/mahaoxuan/Developer/yishuship/benchmarks` |
-| Azure auth 失败 | 缺 endpoint / key | 设置 `AZURE_OPENAI_ENDPOINT` + `AZURE_OPENAI_API_KEY` |
-| Claude CLI 调用失败 | 未登录 | `claude login` |
-| 训练 OOM | batch_size 太大 | `--batch_size 2 --gradient.minibatch_size 2` |
-| Skill 优化后变空白 | optimizer 过激修改 | 减小 `optimizer.learning_rate` (默认 3) → 2 |
+| `Unknown environment 'yishuship'` | env 未注册 | 重新运行 `scripts/sync-skillopt-env.sh /tmp/SkillOpt` |
+| `ModuleNotFoundError: pm_scorer` | env 内缺 PM 评分器 | 确认 `skillopt/envs/yishuship/pm_scorer.py` 存在 |
+| `matt_flow_scorer unavailable` | env 内缺 Matt flow 评分器 | 重新运行同步脚本，确认 `skillopt/envs/yishuship/matt_flow_scorer.py` 存在 |
+| reflect 没有 patches | 没有 per-task trajectory | 检查 `rollout/predictions/<id>/conversation.json` |
+| analyst 输出无法解析 | prompt schema 错 | 使用 `benchmarks/skillopt-env/prompts` 同步后的 JSON object schema |
+| 训练 OOM 或过慢 | batch / token 太大 | 下调 `train.batch_size`、`gradient.minibatch_size`、`env.max_completion_tokens` |

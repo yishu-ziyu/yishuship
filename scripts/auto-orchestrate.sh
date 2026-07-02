@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -u
 
-# Ship auto orchestrator — code-based state machine for staged production work.
+# yishuship auto orchestrator — code-based state machine for staged production work.
 #
 # All deterministic logic lives here: state management, artifact validation,
 # phase transitions, retry tracking, and prompt generation from templates.
@@ -168,13 +168,24 @@ ensure_task_artifacts() {
 
   mkdir -p \
     "$task_dir/input/attachments" \
-    "$task_dir/control"
+    "$task_dir/product" \
+    "$task_dir/delivery" \
+    "$task_dir/growth" \
+    "$task_dir/control" \
+    "$task_dir/plan" \
+    "$task_dir/e2e" \
+    "$task_dir/qa"
 
   {
     printf '# Requirement\n\n'
     printf '## Original Input\n\n'
     printf '%s\n' "$description"
   } > "$task_dir/input/requirement.md"
+
+  {
+    printf '# Idea\n\n'
+    printf '%s\n' "$description"
+  } > "$task_dir/input/idea.md"
 
   {
     printf 'task_id: %s\n' "$task_id"
@@ -327,6 +338,11 @@ generate_prompt() {
 
 file_exists_nonempty() { [ -f "$1" ] && [ -s "$1" ]; }
 
+require_nonempty_file() {
+  local path="$1" label="${2:-$1}"
+  file_exists_nonempty "$path" || { echo "$label missing or empty"; return 1; }
+}
+
 dir_has_files() {
   local dir="$1" pattern="${2:-*}"
   [ -d "$dir" ] && [ -n "$(find "$dir" -maxdepth 1 -name "$pattern" -type f 2>/dev/null | head -1)" ]
@@ -339,6 +355,28 @@ validate_artifacts() {
   task_dir=".ship/tasks/$task_id"
 
   case "$phase" in
+    pm_intake)
+      require_nonempty_file "$task_dir/product/00-product-type.yaml" "product/00-product-type.yaml" || return 1
+      require_nonempty_file "$task_dir/product/01-strategy.md" "product/01-strategy.md" || return 1
+      require_nonempty_file "$task_dir/product/02-research.md" "product/02-research.md" || return 1
+      require_nonempty_file "$task_dir/product/03-problem-solution.md" "product/03-problem-solution.md" || return 1
+      require_nonempty_file "$task_dir/product/04-product-blueprint.md" "product/04-product-blueprint.md" || return 1
+      require_nonempty_file "$task_dir/product/05-model-flow-role.md" "product/05-model-flow-role.md" || return 1
+      require_nonempty_file "$task_dir/product/06-experience-spec.md" "product/06-experience-spec.md" || return 1
+      require_nonempty_file "$task_dir/product/07-data-permission-analytics.md" "product/07-data-permission-analytics.md" || return 1
+      require_nonempty_file "$task_dir/product/08-prd.md" "product/08-prd.md" || return 1
+      require_nonempty_file "$task_dir/product/09-tech-project-plan.md" "product/09-tech-project-plan.md" || return 1
+      require_nonempty_file "$task_dir/control/lifecycle-checklist.yaml" "control/lifecycle-checklist.yaml" || return 1
+      require_nonempty_file "$task_dir/delivery/design-spec.md" "delivery/design-spec.md" || return 1
+      require_nonempty_file "$task_dir/plan/spec.md" "plan/spec.md" || return 1
+      grep -qi "acceptance\|criteria\|requirements\|must\|should" "$task_dir/plan/spec.md" \
+        || { echo "plan/spec.md lacks engineering-facing acceptance criteria"; return 1; }
+      [ -f ".ship/pm-state.yaml" ] || { echo ".ship/pm-state.yaml missing"; return 1; }
+      grep -q "^task_id: *$task_id" ".ship/pm-state.yaml" \
+        || { echo ".ship/pm-state.yaml task_id does not match $task_id"; return 1; }
+      grep -q "^phase: *complete" ".ship/pm-state.yaml" \
+        || { echo ".ship/pm-state.yaml is not complete"; return 1; }
+      ;;
     design)
       file_exists_nonempty "$task_dir/plan/spec.md" || { echo "spec.md missing or empty"; return 1; }
       file_exists_nonempty "$task_dir/plan/plan.md" || { echo "plan.md missing or empty"; return 1; }
@@ -403,11 +441,10 @@ get_retry_count() {
     qa_fix)     state_get "qa_fix_round" ;;
     e2e_fix)    state_get "e2e_fix_round" ;;
     *)
-      if [ -n "$LOCAL_RETRY_FILE" ] && [ -f "$LOCAL_RETRY_FILE" ]; then
-        grep "^${phase}:" "$LOCAL_RETRY_FILE" 2>/dev/null | cut -d: -f2 || echo 0
-      else
-        echo 0
-      fi
+      local key current
+      key="$(printf '%s_retry_round' "$phase" | tr '-' '_')"
+      current=$(state_get "$key")
+      [ -n "$current" ] && echo "$current" || echo 0
       ;;
   esac
 }
@@ -419,20 +456,16 @@ bump_retry_count() {
     qa_fix)     state_bump "qa_fix_round" ;;
     e2e_fix)    state_bump "e2e_fix_round" ;;
     *)
-      if [ -n "$LOCAL_RETRY_FILE" ]; then
-        local current next
-        current=$(get_retry_count "$phase")
-        next=$((current + 1))
-        grep -v "^${phase}:" "$LOCAL_RETRY_FILE" > "${LOCAL_RETRY_FILE}.tmp" 2>/dev/null || true
-        echo "${phase}:${next}" >> "${LOCAL_RETRY_FILE}.tmp"
-        mv "${LOCAL_RETRY_FILE}.tmp" "$LOCAL_RETRY_FILE"
-      fi
+      local key
+      key="$(printf '%s_retry_round' "$phase" | tr '-' '_')"
+      state_bump "$key"
       ;;
   esac
 }
 
 phase_template() {
   case "$1" in
+    pm_intake)        echo "pm-intake" ;;
     design)           echo "design" ;;
     dev)              echo "dev" ;;
     review_fix)       echo "dev-fix" ;;
@@ -495,9 +528,9 @@ cmd_init() {
   fi
 
   if $is_default; then
-    git checkout -b "ship/$task_id" origin/HEAD >/dev/null 2>&1 \
-      || git checkout -b "ship/$task_id" >/dev/null 2>&1
-    branch="ship/$task_id"
+    git checkout -b "yishuship/$task_id" origin/HEAD >/dev/null 2>&1 \
+      || git checkout -b "yishuship/$task_id" >/dev/null 2>&1
+    branch="yishuship/$task_id"
   else
     # On a feature branch — stay on it
     branch="$cur_branch"
@@ -520,8 +553,16 @@ active: true
 task_id: $task_id
 session_id: $session_id
 branch: $branch
-phase: design
+phase: pm_intake
 scope_mode: $scope_mode
+pm_intake_retry_round: 0
+design_retry_round: 0
+dev_retry_round: 0
+review_retry_round: 0
+qa_retry_round: 0
+e2e_retry_round: 0
+refactor_retry_round: 0
+handoff_retry_round: 0
 review_fix_round: 0
 qa_fix_round: 0
 e2e_fix_round: 0
@@ -531,14 +572,14 @@ started_at: "$started_at"
 
 $description
 EOF
-  write_run_state "$task_id" "design" "running"
+  write_run_state "$task_id" "pm_intake" "running"
 
   init_local_retries
 
   local prompt_file
-  prompt_file=$(generate_prompt "design")
+  prompt_file=$(generate_prompt "pm-intake")
 
-  emit_dispatch "design" "$prompt_file" "[Auto] Task \"$task_id\" created (scope: $scope_mode). Starting design phase..."
+  emit_dispatch "pm_intake" "$prompt_file" "[Auto] Task \"$task_id\" created (scope: $scope_mode). Starting product lifecycle intake..."
 }
 
 # ── RESUME Command ──────────────────────────────────────────
@@ -647,6 +688,14 @@ cmd_complete() {
   fi
 
   case "${phase}:${verdict}" in
+    pm_intake:success)
+      state_set "phase" "design"
+      write_run_state "$task_id" "design" "running"
+      local pf; pf=$(generate_prompt "design")
+      emit_dispatch "design" "$pf" "[Auto] Product lifecycle handoff complete. Starting design..."
+      ;;
+    pm_intake:fail|pm_intake:blocked) retry_or_escalate "pm_intake" "$summary" ;;
+
     design:success)
       # Design skill has its own internal evaluation (peer investigation, diff-report,
       # execution drill). Artifact validation already checks spec quality and peer

@@ -42,7 +42,9 @@ has_v2_product_handoff() {
   [ -f "$PRODUCT_DIR/01-strategy.md" ] && \
   [ -f "$PRODUCT_DIR/03-problem-solution.md" ] && \
   [ -f "$PRODUCT_DIR/08-prd.md" ] && \
-  [ -f "$PRODUCT_DIR/09-tech-project-plan.md" ]
+  [ -f "$PRODUCT_DIR/09-tech-project-plan.md" ] && \
+  [ -f "$DELIVERY_DIR/design-spec.md" ] && \
+  [ -f "$TASK_DIR/plan/spec.md" ]
 }
 
 has_legacy_discovery() {
@@ -64,7 +66,7 @@ block() {
 # ── Rule 1: Design requires product type (V2) or discovery (V1) ──────────────
 if echo "$AGENT_PROMPT" | grep -q "yishuship:design\|yishuship:auto"; then
   if ! has_v2_product_handoff && ! has_legacy_discovery; then
-    block "[yishuship PM gate] /yishuship:design or /yishuship:auto requires a complete V2 product handoff. Please run /yishuship:pm-intake and generate at least 00-product-type.yaml, 01-strategy.md, 03-problem-solution.md, 08-prd.md, and 09-tech-project-plan.md in the product/ directory. Old tasks can pass with pm/01-discovery.md."
+    block "[yishuship PM gate] /yishuship:design or /yishuship:auto requires a complete V2 product handoff. Please run /yishuship:pm-intake and generate at least product/00-product-type.yaml, product/01-strategy.md, product/03-problem-solution.md, product/08-prd.md, product/09-tech-project-plan.md, delivery/design-spec.md, and plan/spec.md. Old tasks can pass with pm/01-discovery.md."
     exit 0
   fi
 fi

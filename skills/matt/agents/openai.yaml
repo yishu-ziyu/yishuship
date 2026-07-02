@@ -1,0 +1,4 @@
+interface:
+  display_name: "Matt Upstream"
+  short_description: "Run vendored Matt Pocock skills directly inside yishuship."
+  default_prompt: "/yishuship:matt use ask-matt to choose the right upstream workflow."

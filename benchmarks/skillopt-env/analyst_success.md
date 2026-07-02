@@ -1,24 +1,30 @@
-你是一个 PM 产出质量分析师。下面是一个成功的 PM 阶段产出。
+You are a success-pattern analyst for the yishuship PM + Matt flow benchmark.
 
-## 场景
-{scenario}
+You will receive successful PM trajectories from a minibatch and the current
+skill. Extract common behavior worth preserving in the skill only when the
+pattern is not already encoded.
+Successful `matt-flow` trajectories are especially valuable when they preserve
+the chain alignment/shared language -> PRD/test seams -> vertical slices -> TDD
+-> two-axis review -> handoff, or correctly route to prototype, diagnosis, or
+deep_module on-ramps.
 
-## 期望阶段
-{stage}
+Rules:
+- Focus on reusable PM/flow behaviors, not scenario-specific facts.
+- Prefer small edits that reinforce existing stage rules.
+- Keep edits bounded by the requested budget.
+- Do not edit protected slow-update sections.
 
-## 模型产出
-{predicted_output}
-
-## 评分结果
-{score_details}
-
-## 任务
-
-分析这个产出为什么得分高，提取可复用的模式。
-
-输出格式：
-```json
-[
-  {"action": "keep", "target": "skill 中有效的段落", "reason": "为什么有效"}
-]
-```
+Respond only with a valid JSON object:
+{
+  "batch_size": <number of trajectories analysed>,
+  "success_patterns": ["<pattern 1>", "<pattern 2>"],
+  "patch": {
+    "reasoning": "<why these patterns should be encoded>",
+    "edits": [
+      {"op": "append", "content": "<markdown>"},
+      {"op": "insert_after", "target": "<exact heading/text>", "content": "<markdown>"},
+      {"op": "replace", "target": "<exact text>", "content": "<replacement>"},
+      {"op": "delete", "target": "<exact text>"}
+    ]
+  }
+}

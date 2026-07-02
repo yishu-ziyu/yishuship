@@ -18,7 +18,7 @@ Healthy output should include:
 repo_head: <sha>
 remote_main: <same sha>
 installed_plugin: <same sha>
-skill_links: 13/13
+skill_links: 14/14
 update_needed: no
 ```
 

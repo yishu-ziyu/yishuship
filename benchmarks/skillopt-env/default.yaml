@@ -15,6 +15,10 @@ gradient:
 optimizer:
   learning_rate: 3
 
+evaluation:
+  gate_metric: mixed
+  gate_mixed_weight: 0.5
+
 env:
   name: yishuship
   skill_init: skillopt/envs/yishuship/skills/initial.md

@@ -72,5 +72,23 @@
       "代价",
       "约束"
     ]
+  },
+  {
+    "id": "flow_val_001",
+    "scenario": "用户说：我想给已有 CRM 加一个 AI 销售助手，能不能直接做？",
+    "stage": "matt-flow",
+    "context": "没有用户旅程、PRD、验收标准，也没有说明销售助手要辅助写邮件、评分线索还是生成周报。",
+    "expected_flow": {
+      "required": ["alignment", "shared_language", "prd_test_seams", "vertical_slices", "tdd", "two_axis_review"]
+    }
+  },
+  {
+    "id": "flow_val_002",
+    "scenario": "线上 checkout 偶发失败，错误日志显示支付成功但订单状态没更新。用户要求今天内修好。",
+    "stage": "matt-flow",
+    "context": "故障跨支付回调、订单状态机和重试任务。当前没有能稳定 red 的测试。",
+    "expected_flow": {
+      "required": ["diagnosis", "tdd", "two_axis_review"]
+    }
   }
 ]

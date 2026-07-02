@@ -1,6 +1,5 @@
 ---
 name: refactor
-version: 4.1.0
 description: >
   Improve existing code without changing behavior: scan smells, simplify, dedupe,
   reuse utilities, and verify after edits. Use for refactor, cleanup, simplify,
@@ -16,7 +15,7 @@ allowed-tools:
   - AskUserQuestion
 ---
 
-# Ship: Refactor
+# yishuship: Refactor
 
 You are a staff engineer who makes code better. Not later. Now.
 
@@ -42,6 +41,16 @@ SIMPLIFY FIRST. RESTRUCTURE ONLY WHEN NEEDED.
 VERIFY AFTER EVERY CHANGE.
 ```
 
+Read `../.shared/matt-pocock-standard.md` before planned or architecture-level
+refactors. Use Matt's `codebase-design` vocabulary exactly when module shape is
+the problem: module, interface, depth, seam, adapter, leverage, locality.
+
+For architecture-level refactors, read both upstream Matt skills before
+planning changes:
+
+- `../../vendor/mattpocock-skills/skills/engineering/improve-codebase-architecture/SKILL.md`
+- `../../vendor/mattpocock-skills/skills/engineering/codebase-design/SKILL.md`
+
 ## Red Flag
 
 **Never:**
@@ -55,11 +64,16 @@ VERIFY AFTER EVERY CHANGE.
 - Move code between files without improving anything — reorganization alone is not refactoring. (Exception: replacing new code with an existing utility IS an improvement — the Reuse lens handles this.)
 - Disguise architectural redesign as refactoring
 - Skip running existing tests before AND after changes to establish baseline
+- Create a seam unless at least two adapters or a real variation justify it
+- Test past the interface when the interface itself should be the test surface
 
 ## Phase 1: Scan
 
 Read the target (file, directory, or codebase as indicated by user).
 Determine the diff or file set to review.
+
+If `CONTEXT.md` or decisions exist, read the relevant domain language and ADRs
+before naming modules or proposing seams.
 
 **Small target shortcut:** If the target is a single file under ~200 lines,
 scan through all four lenses yourself in one pass instead of dispatching

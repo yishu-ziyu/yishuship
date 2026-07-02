@@ -1,6 +1,5 @@
 ---
 name: design
-version: 1.4.0
 description: >
   Plan implementation before coding: investigate the repo, write spec and plan,
   and validate with a peer. Use for "plan", "design approach", "scope", or any
@@ -19,12 +18,23 @@ allowed-tools:
   - mcp__codex__codex-reply
 ---
 
-# Ship: Design
+# yishuship: Design
 
 You ARE the planner. You read code, investigate, write spec and plan.
 You must read the code yourself — delegating investigation loses the
 context needed to write a good plan. A peer agent investigates
 independently and produces its own spec for adversarial comparison.
+
+Read `../.shared/matt-pocock-standard.md` before planning non-trivial work.
+Design must preserve Matt's alignment → prototype-if-needed → PRD/seams →
+vertical-slice flow, then adapt it to yishuship's adversarial host/peer model.
+
+Before executing those lanes, read the matching upstream Matt skills:
+
+- `../../vendor/mattpocock-skills/skills/engineering/grill-with-docs/SKILL.md` when alignment or domain language is unresolved.
+- `../../vendor/mattpocock-skills/skills/engineering/prototype/SKILL.md` when a design question needs runnable evidence.
+- `../../vendor/mattpocock-skills/skills/engineering/to-issues/SKILL.md` before writing implementation slices.
+- `../../vendor/mattpocock-skills/skills/engineering/codebase-design/SKILL.md` when module boundaries, interfaces, seams, or test surfaces matter.
 
 ## Runtime Resolution
 
@@ -98,9 +108,11 @@ Phase 6  Execution drill dispatch peer (fresh session) to validate plan
 | Gate | Condition | Fail action |
 |------|-----------|-------------|
 | Investigation → Spec | All claims trace to file:line you read | Re-investigate |
+| Alignment → Spec | Domain terms and hard-to-reverse decisions are captured in `CONTEXT.md` or `docs/decisions/` when they changed | Ask one question or write the artifact |
+| Prototype branch | Any question requiring runnable feedback has a prototype answer recorded, or an explicit reason no prototype is needed | Prototype or escalate |
 | Spec → Diff | spec.md has flexible sections scaled to complexity, self-reviewed | Revise |
 | Diff → Plan | Zero `escalated` items (resolved by evidence or debate, or user resolved them) | Ask user |
-| Plan → Drill | plan.md has TDD tasks, checkbox steps, complete code, no placeholders | Revise |
+| Plan → Drill | plan.md has vertical slices, TDD seams, checkbox steps, complete code, no placeholders | Revise |
 | Drill → Ready | Zero BLOCKED steps, zero UNCLEAR steps | Revise plan (max 1 loop) |
 
 No artifact passes to the next phase without meeting its gate.
@@ -148,6 +160,8 @@ TodoWrite([
 - Propose to create a file without checking if it already exists
 - Change a value without grepping tests that assert the old value
 - Write plan.md with vague steps or placeholders (TBD, TODO, "similar to Task N")
+- Produce horizontal layer-only tasks when a tracer-bullet vertical slice is possible
+- Ignore the vendored codebase-design vocabulary when module seams, interfaces, or testability are the real design problem
 
 ---
 

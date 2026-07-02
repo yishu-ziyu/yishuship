@@ -238,5 +238,59 @@
       "替代",
       "代价"
     ]
+  },
+  {
+    "id": "flow_001",
+    "scenario": "用户说：我有个 idea，想做一个 AI 会议纪要产品，最好你直接帮我从 0 到 1 做出来。",
+    "stage": "matt-flow",
+    "context": "没有 PRD，没有现成验收标准，用户只描述了方向。目标是判断应该触发怎样的 yishuship 全流程。",
+    "expected_flow": {
+      "required": ["alignment", "shared_language", "prd_test_seams", "vertical_slices", "tdd", "two_axis_review", "handoff"]
+    }
+  },
+  {
+    "id": "flow_002",
+    "scenario": "用户想做一个新的数据看板，但不确定左侧筛选器、顶部 KPI 和详情表哪种布局更适合销售主管。",
+    "stage": "matt-flow",
+    "context": "争议点是交互和信息架构，文字讨论无法判断哪种方案更好。需要判断是否先做可运行原型。",
+    "expected_flow": {
+      "required": ["alignment", "prototype", "prd_test_seams"]
+    }
+  },
+  {
+    "id": "flow_003",
+    "scenario": "已有 PRD 和验收标准：给 API 网关添加按 API key 的 rate limit。用户说：按最高质量实现。",
+    "stage": "matt-flow",
+    "context": "PRD 已清楚，包含接口、错误码和 5 条 Given/When/Then 验收标准。需要判断实现阶段流程。",
+    "expected_flow": {
+      "required": ["vertical_slices", "tdd", "two_axis_review"]
+    }
+  },
+  {
+    "id": "flow_004",
+    "scenario": "生产环境偶发性能回退：搜索接口有时 300ms，有时 8s。用户说：快修一下。",
+    "stage": "matt-flow",
+    "context": "没有稳定复现步骤，监控只显示 p99 抖动。需要判断修复前的流程。",
+    "expected_flow": {
+      "required": ["diagnosis", "tdd", "two_axis_review"]
+    }
+  },
+  {
+    "id": "flow_005",
+    "scenario": "代码库越来越像一团泥，所有页面直接读写数据库，测试很难写。用户想系统性改善架构。",
+    "stage": "matt-flow",
+    "context": "目标不是新增功能，而是识别模块边界、接口、测试 seam，并让后续改动更便宜。",
+    "expected_flow": {
+      "required": ["deep_module", "vertical_slices", "tdd", "two_axis_review"]
+    }
+  },
+  {
+    "id": "flow_006",
+    "scenario": "一个长会话已经完成设计、实现、E2E 和 review，用户准备换下一个 agent 继续发 PR 和修 CI。",
+    "stage": "matt-flow",
+    "context": "所有 artifact 已经在 .ship/tasks/task-123/ 下，不能把已有文档复制一遍。",
+    "expected_flow": {
+      "required": ["two_axis_review", "handoff"]
+    }
   }
 ]

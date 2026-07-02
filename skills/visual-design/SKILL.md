@@ -107,6 +107,13 @@ The HTML must be fully self-contained (inline CSS, no external dependencies) and
 
 If the design system has a dark mode or dark sections, also generate `preview-dark.html` with dark surface backgrounds.
 
+## Completion Gate
+
+Done means `DESIGN.md` contains all 9 sections, `preview.html` is self-contained
+and responsive, and any dark-mode claim is backed by `preview-dark.html` or
+marked `n/a`. If a required source cannot be inspected, return `BLOCKED` with the
+missing source instead of filling gaps from taste.
+
 ## Execution Handoff
 
 Output the report card:

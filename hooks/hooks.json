@@ -1,5 +1,4 @@
 {
-  "description": "yishuship hooks — Ship engineering gates + PM workflow enforcement",
   "hooks": {
     "SessionStart": [
       {

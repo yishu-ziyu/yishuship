@@ -1,0 +1,41 @@
+You must use Skill('yishuship:pm-intake'). Skip preamble and auth gate.
+
+Product lifecycle request:
+---
+{{DESCRIPTION}}
+---
+
+IMPORTANT: This is the first phase of /yishuship:auto. Do NOT jump to design or
+implementation. Turn the raw idea into a complete product-to-engineering handoff
+inside the provided task directory.
+
+Reuse the provided task_id and task_dir. Do NOT create a separate timestamp task.
+
+task_id: {{TASK_ID}}
+task_dir: {{TASK_DIR}}
+Raw input: {{TASK_DIR}}/input/idea.md
+Requirement copy: {{TASK_DIR}}/input/requirement.md
+Run state: {{TASK_DIR}}/control/run_state.yaml
+Branch: {{BRANCH}}
+HEAD: {{HEAD_SHA}}
+Scope mode: {{SCOPE_MODE}}
+Mode: /yishuship:auto staged workflow — no user questions unless classification or scope is impossible without one.
+
+Required artifacts before returning success:
+- {{TASK_DIR}}/product/00-product-type.yaml
+- {{TASK_DIR}}/product/01-strategy.md
+- {{TASK_DIR}}/product/02-research.md
+- {{TASK_DIR}}/product/03-problem-solution.md
+- {{TASK_DIR}}/product/04-product-blueprint.md
+- {{TASK_DIR}}/product/05-model-flow-role.md
+- {{TASK_DIR}}/product/06-experience-spec.md
+- {{TASK_DIR}}/product/07-data-permission-analytics.md
+- {{TASK_DIR}}/product/08-prd.md
+- {{TASK_DIR}}/product/09-tech-project-plan.md
+- {{TASK_DIR}}/control/lifecycle-checklist.yaml
+- {{TASK_DIR}}/delivery/design-spec.md
+- {{TASK_DIR}}/plan/spec.md
+
+Also write .ship/pm-state.yaml with this task_id and `phase: complete` when the
+handoff is ready. The orchestrator validates these files before dispatching
+design.

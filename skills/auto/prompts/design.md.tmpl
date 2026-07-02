@@ -1,4 +1,4 @@
-You must use Skill('ship:design'). Skip preamble and auth gate.
+You must use Skill('yishuship:design'). Skip preamble and auth gate.
 
 Planning request:
 ---
@@ -10,7 +10,7 @@ The orchestrator validates these files exist and are non-empty before advancing
 to the dev phase. Do NOT respond conversationally — write the artifacts to disk.
 
 If this task involves frontend/UI changes and no DESIGN.md exists at project root,
-note in spec.md that one should be created via /ship:visual-design before or
+note in spec.md that one should be created via /yishuship:visual-design before or
 after this pipeline run.
 
 task_id: {{TASK_ID}}
@@ -20,7 +20,7 @@ Run state: .ship/tasks/{{TASK_ID}}/control/run_state.yaml
 Branch: {{BRANCH}}
 HEAD: {{HEAD_SHA}}
 Scope mode: {{SCOPE_MODE}}
-Mode: /ship:auto staged workflow — no user questions, treat escalations as blocked.
+Mode: /yishuship:auto staged workflow — no user questions, treat escalations as blocked.
 
 If lightweight YAML planning notes would help this specific task, you may write
 them under .ship/tasks/{{TASK_ID}}/control/. Choose the schema yourself and keep

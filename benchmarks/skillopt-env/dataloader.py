@@ -11,7 +11,7 @@ from skillopt.datasets.base import SplitDataLoader
 
 
 def _normalize_item(raw: dict) -> dict:
-    return {
+    item = {
         "id": str(raw.get("id") or raw.get("uid") or ""),
         "scenario": str(raw.get("scenario") or ""),
         "stage": str(raw.get("stage") or "discover"),
@@ -19,6 +19,10 @@ def _normalize_item(raw: dict) -> dict:
         "ground_truth_keywords": raw.get("ground_truth_keywords") or [],
         "task_type": str(raw.get("stage") or "discover"),
     }
+    if "expected_flow" in raw:
+        item["expected_flow"] = raw["expected_flow"]
+        item["task_type"] = "matt-flow"
+    return item
 
 
 class YishushipLoader(SplitDataLoader):
