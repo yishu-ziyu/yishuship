@@ -63,7 +63,7 @@ Bug / 小修复      → /yishuship:review 或直接修
 - B: 业务流程、角色、权限、数据对象、报表、风险控制、组织协作
 - hybrid: 用户与购买者, checkpoint required/optional/N/A
 
-pm-intake writes product/00-product-type.yaml.
+pm-intake writes product/00-product-type.json.
 
 ## 完整路由表
 
@@ -148,7 +148,7 @@ equivalent options unless the user explicitly asks to compare them.
 ```text
 .ship/tasks/<task_id>/
   input/idea.md             ← 原始灵感或需求
-  product/*                 ← V2 产品生命周期制品 (如 00-product-type.yaml, 09-tech-project-plan.md)
+  product/*                 ← V2 产品生命周期制品 (如 00-product-type.json, 09-tech-project-plan.md)
   delivery/design-spec.md   ← 交付设计规格
   control/lifecycle-checklist.yaml ← V2 生命周期检查清单
   plan/*                    ← 兼容原版的工程计划文件 (spec.md, peer-spec.md, plan.md, diff-report.md)

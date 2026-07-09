@@ -33,7 +33,7 @@ Do not commit or push automatically.
 
 ## Source Artifacts
 
-- `product/00-product-type.yaml`
+- `product/00-product-type.json`
 - `product/01-strategy.md`
 - `product/02-research.md`
 - `product/03-problem-solution.md`

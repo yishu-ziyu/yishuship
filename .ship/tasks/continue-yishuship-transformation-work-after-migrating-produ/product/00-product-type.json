@@ -1,0 +1,24 @@
+{
+  "product_type": "B",
+  "primary_user": "The user and AI coding agents operating yishuship inside Claude Code sessions",
+  "buyer_or_user": "Same owner: the user maintains the workflow and depends on agents to follow it safely",
+  "core_scene": "Continue hardening yishuship so long-running /yishuship:auto work survives format migration, artifact drift, subagent bypass attempts, verifier hangs, and context-window transitions",
+  "workflow_weight": {
+    "strategy": "required",
+    "research": "required",
+    "data_model": "required",
+    "permission": "optional",
+    "report": "required",
+    "analytics": "optional"
+  },
+  "skip_rules": [
+    {
+      "checkpoint": "operations",
+      "reason": "No public launch or recurring operations loop is requested in this slice."
+    },
+    {
+      "checkpoint": "iteration_analytics",
+      "reason": "No telemetry source exists for this workflow yet; validation comes from deterministic scripts and benchmark tests."
+    }
+  ]
+}

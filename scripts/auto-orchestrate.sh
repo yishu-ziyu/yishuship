@@ -139,6 +139,11 @@ state_set() {
   ' "$STATE_FILE" > "$tmp_file"
 
   mv "$tmp_file" "$STATE_FILE"
+
+  # Update integrity manifest so hooks can detect silent corruption
+  if [ -f "$STATE_FILE" ]; then
+    "$REPO_ROOT/scripts/validate-artifacts.sh" --update "$STATE_FILE" >/dev/null 2>&1 || true
+  fi
 }
 
 state_bump() {
@@ -210,6 +215,9 @@ write_run_state() {
     printf 'status: %s\n' "$status"
     printf 'updated_at: "%s"\n' "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
   } > "$task_dir/control/run_state.yaml"
+
+  # Update integrity manifest
+  "$REPO_ROOT/scripts/validate-artifacts.sh" --update "$task_dir/control/run_state.yaml" >/dev/null 2>&1 || true
 }
 
 # Detect whether the task is refactor-shaped based on the leading verb
@@ -343,6 +351,20 @@ require_nonempty_file() {
   file_exists_nonempty "$path" || { echo "$label missing or empty"; return 1; }
 }
 
+# Accept either .json (preferred) or .yaml for a given artifact stem.
+# At least one must exist and be non-empty.
+require_json_or_yaml() {
+  local dir="$1" stem="$2" label="${3:-$stem}"
+  if [ -f "$dir/${stem}.json" ]; then
+    file_exists_nonempty "$dir/${stem}.json" || { echo "$label (.json) missing or empty"; return 1; }
+  elif [ -f "$dir/${stem}.yaml" ]; then
+    file_exists_nonempty "$dir/${stem}.yaml" || { echo "$label (.yaml) missing or empty"; return 1; }
+  else
+    echo "$label (.json or .yaml) not found in $dir"
+    return 1
+  fi
+}
+
 dir_has_files() {
   local dir="$1" pattern="${2:-*}"
   [ -d "$dir" ] && [ -n "$(find "$dir" -maxdepth 1 -name "$pattern" -type f 2>/dev/null | head -1)" ]
@@ -356,7 +378,7 @@ validate_artifacts() {
 
   case "$phase" in
     pm_intake)
-      require_nonempty_file "$task_dir/product/00-product-type.yaml" "product/00-product-type.yaml" || return 1
+      require_json_or_yaml "$task_dir/product" "00-product-type" "product/00-product-type" || return 1
       require_nonempty_file "$task_dir/product/01-strategy.md" "product/01-strategy.md" || return 1
       require_nonempty_file "$task_dir/product/02-research.md" "product/02-research.md" || return 1
       require_nonempty_file "$task_dir/product/03-problem-solution.md" "product/03-problem-solution.md" || return 1
@@ -668,6 +690,15 @@ cmd_complete() {
   local task_id task_dir
   task_id=$(state_get "task_id")
   task_dir=".ship/tasks/$task_id"
+
+  # Defensive integrity check before phase transition
+  local integrity_err
+  integrity_err=$("$REPO_ROOT/scripts/validate-artifacts.sh" --check 2>&1) && true
+  if [ -n "$integrity_err" ]; then
+    echo "[auto-orchestrate] INTEGRITY CHECK FAILED: $integrity_err" >&2
+    verdict="fail"
+    summary="Artifact integrity check failed: $integrity_err"
+  fi
 
   if [ "$verdict" = "success" ] || [ "$verdict" = "findings" ]; then
     local validation_err

@@ -37,8 +37,12 @@ PM_DIR="$TASK_DIR/pm"
 PRODUCT_DIR="$TASK_DIR/product"
 DELIVERY_DIR="$TASK_DIR/delivery"
 
+has_product_type_artifact() {
+  [ -f "$PRODUCT_DIR/00-product-type.json" ] || [ -f "$PRODUCT_DIR/00-product-type.yaml" ]
+}
+
 has_v2_product_handoff() {
-  [ -f "$PRODUCT_DIR/00-product-type.yaml" ] && \
+  has_product_type_artifact && \
   [ -f "$PRODUCT_DIR/01-strategy.md" ] && \
   [ -f "$PRODUCT_DIR/03-problem-solution.md" ] && \
   [ -f "$PRODUCT_DIR/08-prd.md" ] && \
@@ -66,7 +70,7 @@ block() {
 # ── Rule 1: Design requires product type (V2) or discovery (V1) ──────────────
 if echo "$AGENT_PROMPT" | grep -q "yishuship:design\|yishuship:auto"; then
   if ! has_v2_product_handoff && ! has_legacy_discovery; then
-    block "[yishuship PM gate] /yishuship:design or /yishuship:auto requires a complete V2 product handoff. Please run /yishuship:pm-intake and generate at least product/00-product-type.yaml, product/01-strategy.md, product/03-problem-solution.md, product/08-prd.md, product/09-tech-project-plan.md, delivery/design-spec.md, and plan/spec.md. Old tasks can pass with pm/01-discovery.md."
+    block "[yishuship PM gate] /yishuship:design or /yishuship:auto requires a complete V2 product handoff. Please run /yishuship:pm-intake and generate at least product/00-product-type.json, product/01-strategy.md, product/03-problem-solution.md, product/08-prd.md, product/09-tech-project-plan.md, delivery/design-spec.md, and plan/spec.md. Old tasks can pass with pm/01-discovery.md."
     exit 0
   fi
 fi

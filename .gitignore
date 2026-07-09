@@ -2,3 +2,6 @@ __pycache__/
 *.pyc
 .DS_Store
 .orphaned_at
+.ship/.checksums
+.ship/ship-auto.local.md
+.ship/tasks/*/prompts/

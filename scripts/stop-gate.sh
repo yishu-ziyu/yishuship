@@ -5,10 +5,11 @@ set -u
 # Logic:
 #   1. No active auto state → allow exit
 #   2. Different session or subagent → allow exit
-#   3. Active auto state, same session → run external verifier
+#   3. Active auto state, same session → run external verifier (with timeout)
 #   4. TASK_COMPLETE → remove state file and allow exit
 #   5. TASK_INCOMPLETE → block exit and feed missing work back into the loop
 #   6. TASK_BLOCKED → allow exit, keep state file for resume
+#   7. VERIFIER_TIMEOUT → block exit, tell agent the verifier hung
 #
 # State file: .ship/ship-auto.local.md (YAML frontmatter + description body)
 # Returns {"decision":"block","reason":"..."} to prevent stop, or exits 0 to allow.
@@ -24,6 +25,9 @@ _PR_READINESS="$_SCRIPT_DIR/pr-readiness.sh"
 
 # Verifier subprocesses bypass Ship hooks entirely to avoid recursive stop loops.
 [ "${SHIP_STOP_GATE_BYPASS:-0}" = "1" ] && exit 0
+
+# Verifier timeout (seconds). Prevents infinite hang when no CLI is available.
+VERIFIER_TIMEOUT="${SHIP_VERIFIER_TIMEOUT:-30}"
 
 frontmatter_value() {
   local key="$1"
@@ -289,9 +293,56 @@ Sync with the base branch or resolve conflicts as needed, push, then resume /yis
     ;;
 esac
 
-# ── RUN EXTERNAL VERIFIER ────────────────────────────────────
-VERIFIER_OUTPUT=$(run_verifier)
-VERIFIER_RC=$?
+# ── RUN EXTERNAL VERIFIER (with timeout) ────────────────────
+# Run the verifier in a background subshell so we can enforce a timeout.
+# Without this, a missing or hanging verifier CLI (codex/claude) blocks
+# the agent session indefinitely.
+
+VERIFIER_OUTPUT=$(mktemp)
+VERIFIER_PID=""
+
+run_verifier_bg() {
+  run_verifier > "$VERIFIER_OUTPUT" 2>&1
+}
+run_verifier_bg &
+VERIFIER_PID=$!
+
+VERIFIER_RC=124  # Default to timeout exit code
+_elapsed=0
+while [ "$_elapsed" -lt "$VERIFIER_TIMEOUT" ]; do
+  if ! kill -0 "$VERIFIER_PID" 2>/dev/null; then
+    wait "$VERIFIER_PID" 2>/dev/null
+    VERIFIER_RC=$?
+    break
+  fi
+  sleep 1
+  _elapsed=$((_elapsed + 1))
+done
+
+if [ "$_elapsed" -ge "$VERIFIER_TIMEOUT" ]; then
+  # Timeout: terminate the verifier process group
+  kill -TERM "$VERIFIER_PID" 2>/dev/null
+  sleep 2
+  kill -9 "$VERIFIER_PID" 2>/dev/null
+  wait "$VERIFIER_PID" 2>/dev/null
+  VERIFIER_RC=124
+fi
+
+VERIFIER_CONTENT=$(cat "$VERIFIER_OUTPUT" 2>/dev/null || true)
+rm -f "$VERIFIER_OUTPUT"
+
+if [ "$VERIFIER_RC" -eq 124 ]; then
+  REASON="[Ship] External workflow verifier timed out after ${VERIFIER_TIMEOUT} seconds.
+Task: $TASK_ID
+Current phase: $PHASE
+Branch: $BRANCH
+
+The verifier (codex/claude) appears to be unavailable or hanging.
+Continue the active /yishuship:auto run from the current repo state and try again.
+If the verifier CLI is not installed, consider setting SHIP_AUTO_VERIFIER_CMD."
+  block_with_reason "$REASON" "yishuship verifier timed out — check CLI availability"
+  exit 0
+fi
 
 if [ "$VERIFIER_RC" -ne 0 ]; then
   REASON="[Ship] External workflow verifier could not determine task completion. Do not exit yet.
@@ -302,12 +353,12 @@ Branch: $BRANCH
 Continue the active /yishuship:auto run from the current repo state and try again.
 
 Verifier output:
-$VERIFIER_OUTPUT"
+$VERIFIER_CONTENT"
   block_with_reason "$REASON" "yishuship verifier unavailable — continuing /yishuship:auto"
   exit 0
 fi
 
-VERDICT=$(verdict_line "$VERIFIER_OUTPUT")
+VERDICT=$(verdict_line "$VERIFIER_CONTENT")
 
 case "$VERDICT" in
   TASK_COMPLETE)
@@ -315,13 +366,13 @@ case "$VERDICT" in
     exit 0
     ;;
   TASK_BLOCKED)
-    BLOCKER=$(extract_section "BLOCKER:" "$VERIFIER_OUTPUT")
+    BLOCKER=$(extract_section "BLOCKER:" "$VERIFIER_CONTENT")
     echo "🛑 Ship workflow verifier: task blocked." >&2
     [ -n "$BLOCKER" ] && printf '%s\n' "$BLOCKER" >&2
     exit 0
     ;;
   TASK_INCOMPLETE)
-    MISSING=$(extract_section "MISSING:" "$VERIFIER_OUTPUT")
+    MISSING=$(extract_section "MISSING:" "$VERIFIER_CONTENT")
     REASON="[Ship] External verifier determined the task is not complete yet.
 Task: $TASK_ID
 Current phase: $PHASE
@@ -342,7 +393,7 @@ Current phase: $PHASE
 Continue the active /yishuship:auto run and try again.
 
 Verifier output:
-$VERIFIER_OUTPUT"
+$VERIFIER_CONTENT"
     block_with_reason "$REASON" "yishuship verifier returned an invalid verdict"
     exit 0
     ;;

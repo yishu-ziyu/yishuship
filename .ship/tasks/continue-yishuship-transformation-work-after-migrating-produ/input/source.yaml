@@ -1,0 +1,8 @@
+task_id: continue-yishuship-transformation-work-after-migrating-produ
+source_type: user_request
+source_ref: conversation
+received_at: "2026-07-09T14:48:38Z"
+input_artifacts:
+  - path: input/requirement.md
+    type: markdown
+    role: raw_requirement

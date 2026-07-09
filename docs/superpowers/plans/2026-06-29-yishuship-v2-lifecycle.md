@@ -1,5 +1,9 @@
 # yishuship V2 Lifecycle Implementation Plan
 
+> Historical note: this 2026-06-29 snapshot predates the JSON migration.
+> The current canonical lifecycle entry artifact for new work is `product/00-product-type.json`; legacy `product/00-product-type.yaml` is migration fallback only.
+> See `skills/.shared/product-lifecycle-21.md` for the current protocol.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Upgrade yishuship from a PM-fronted engineering workflow into a product lifecycle workflow built around 21 product checkpoints, while preserving existing command names and task compatibility.

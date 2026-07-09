@@ -1,0 +1,85 @@
+checkpoints:
+  - id: 0
+    name: product_type
+    status: required
+    reason: "This is B-side workflow infrastructure for the user and coding agents."
+  - id: 1
+    name: brd
+    status: required
+    reason: "The work prevents long-running workflow drift and unsafe agent behavior."
+  - id: 2
+    name: mrd
+    status: optional
+    reason: "The relevant comparison is local yishuship behavior versus original Ship-style workflow discipline, not a commercial market."
+  - id: 3
+    name: scenario_research
+    status: required
+    reason: "Must inspect the current repo state, existing task artifacts, gates, and benchmark surface."
+  - id: 4
+    name: current_state
+    status: required
+    reason: "The work continues an already-dirty branch and must account for existing diffs."
+  - id: 5
+    name: problem_summary
+    status: required
+    reason: "Need a precise statement of why JSON migration and guardrails matter."
+  - id: 6
+    name: solution_idea
+    status: required
+    reason: "Need a concrete workflow hardening approach."
+  - id: 7
+    name: product_solution
+    status: required
+    reason: "The workflow behavior must be visible to users and agents."
+  - id: 8
+    name: product_blueprint
+    status: required
+    reason: "Must separate this hardening slice from future growth automation."
+  - id: 9
+    name: data_model
+    status: required
+    reason: "Need named objects for product type JSON, PM handoff, checksums, phase state, and benchmark evidence."
+  - id: 10
+    name: flow_role
+    status: required
+    reason: "Need a clear role split between orchestrator, phase skills, gates, subagents, and the user."
+  - id: 11
+    name: interface_design
+    status: required
+    reason: "The user-facing interface is CLI output, guardrail messages, and artifact paths."
+  - id: 12
+    name: report_design
+    status: required
+    reason: "Need clear reports from checksum validation, tests, and handoff artifacts."
+  - id: 13
+    name: tracking
+    status: optional
+    reason: "Deterministic test output and checksum state are enough for this slice."
+  - id: 14
+    name: permission
+    status: required
+    reason: "Subagent write permission boundaries are a core safety requirement."
+  - id: 15
+    name: prd
+    status: required
+    reason: "Engineering needs executable requirements and acceptance criteria."
+  - id: 16
+    name: technical_plan
+    status: required
+    reason: "The change spans shell gates, skill docs, benchmark tests, and existing task artifacts."
+  - id: 17
+    name: project_management
+    status: required
+    reason: "Must define done versus follow-up for a long-running workflow slice."
+  - id: 18
+    name: delivery
+    status: required
+    reason: "Must produce changed scripts, docs, task artifacts, and test evidence."
+  - id: 19
+    name: operations
+    status: N/A
+    reason: "No launch or recurring ops workflow requested."
+  - id: 20
+    name: iteration_analytics
+    status: N/A
+    reason: "No analytics loop requested; use tests and future dogfood instead."

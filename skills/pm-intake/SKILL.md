@@ -99,7 +99,7 @@ Before Step 2 is complete, apply the vendored `grill-with-docs` /
 - Create a decision record only when the trade-off is hard to reverse,
   surprising without context, and chosen from real alternatives.
 
-## Step 1: Product Type → `product/00-product-type.yaml`
+## Step 1: Product Type → `product/00-product-type.json`
 
 Classify the product as `C`, `B`, or `hybrid`.
 
@@ -107,21 +107,27 @@ Ask only what is needed to classify. Prefer one question at a time.
 
 Write:
 
-```yaml
-product_type: C | B | hybrid
-primary_user:
-buyer_or_user:
-core_scene:
-workflow_weight:
-  strategy: required
-  research: required
-  data_model: required | optional
-  permission: required | optional
-  report: required | optional
-  analytics: required
-skip_rules:
-  - checkpoint:
-    reason:
+```json
+{
+  "product_type": "C | B | hybrid",
+  "primary_user": "",
+  "buyer_or_user": "",
+  "core_scene": "",
+  "workflow_weight": {
+    "strategy": "required",
+    "research": "required",
+    "data_model": "required | optional",
+    "permission": "required | optional",
+    "report": "required | optional",
+    "analytics": "required"
+  },
+  "skip_rules": [
+    {
+      "checkpoint": "",
+      "reason": ""
+    }
+  ]
+}
 ```
 
 Also write `$TASK_DIR/control/lifecycle-checklist.yaml` with all 21 checkpoints and their `required`, `optional`, or `N/A` status.

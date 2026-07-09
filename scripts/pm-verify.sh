@@ -49,10 +49,10 @@ MISSING=""
 case "$PM_PHASE" in
   # V2 phases
   product-type)
-    [ ! -f "$PRODUCT_DIR/00-product-type.yaml" ] && MISSING="$MISSING\n- product/00-product-type.yaml"
+    [ ! -f "$PRODUCT_DIR/00-product-type.json" ] && [ ! -f "$PRODUCT_DIR/00-product-type.yaml" ] && MISSING="$MISSING\n- product/00-product-type.json"
     ;;
   strategy)
-    [ ! -f "$PRODUCT_DIR/00-product-type.yaml" ] && MISSING="$MISSING\n- product/00-product-type.yaml"
+    [ ! -f "$PRODUCT_DIR/00-product-type.json" ] && [ ! -f "$PRODUCT_DIR/00-product-type.yaml" ] && MISSING="$MISSING\n- product/00-product-type.json"
     [ ! -f "$PRODUCT_DIR/01-strategy.md" ] && MISSING="$MISSING\n- product/01-strategy.md"
     ;;
   research)

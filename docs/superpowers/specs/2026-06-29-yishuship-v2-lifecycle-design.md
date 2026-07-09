@@ -1,5 +1,9 @@
 # yishuship V2 产品生命周期协议设计
 
+> Historical note: this 2026-06-29 snapshot predates the JSON migration.
+> The current canonical lifecycle entry artifact for new work is `product/00-product-type.json`; legacy `product/00-product-type.yaml` is migration fallback only.
+> See `skills/.shared/product-lifecycle-21.md` for the current protocol.
+
 ## 背景
 
 yishuship 当前定位是“在原版 Ship 基础上叠加 PM 能力的 AI 产品开发 harness”。现有 README 已把系统分成 PM 层与工程层：PM 层回答“做不做”，工程层回答“怎么做”。当前主流程是 `pm-intake → design → dev → e2e → review → qa → handoff`。
