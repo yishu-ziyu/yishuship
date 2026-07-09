@@ -248,7 +248,18 @@ read_description() {
 # ── Git Helpers ─────────────────────────────────────────────
 
 has_branch_changes() {
-  # Check if the current branch has commits diverging from origin's default.
+  # Prefer the phase baseline recorded by the orchestrator. This works in
+  # local/temp repos where origin/HEAD may not exist.
+  local baseline=""
+  baseline=$(state_get "pre_dev_sha" 2>/dev/null || true)
+  [ -z "$baseline" ] && baseline=$(state_get "pre_refactor_sha" 2>/dev/null || true)
+
+  if [ -n "$baseline" ] && git rev-parse --verify --quiet "$baseline" >/dev/null 2>&1; then
+    [ "$(git log --oneline "$baseline"..HEAD 2>/dev/null | wc -l | tr -d ' ')" -gt 0 ]
+    return $?
+  fi
+
+  # Fallback: check if the current branch has commits diverging from origin's default.
   [ "$(git log --oneline origin/HEAD..HEAD 2>/dev/null | wc -l | tr -d ' ')" -gt 0 ]
 }
 

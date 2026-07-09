@@ -1072,6 +1072,25 @@ class TestCrossSessionResume(unittest.TestCase):
         self._complete_pm_intake(task_id)
         return self._complete_design(task_id)
 
+    def test_complete_dev_uses_pre_dev_sha_without_origin_head(self):
+        """Dev validation should accept commits after pre_dev_sha even when
+        origin/HEAD is not configured in a local or temporary repo."""
+        task_id = self._init_task("dev completion base test")
+        self._complete_dev(task_id)
+
+        Path(self.repo, "feature.txt").write_text("implemented\n")
+        subprocess.run(["git", "add", "feature.txt"], cwd=self.repo, check=True)
+        subprocess.run(["git", "commit", "-q", "-m", "implement feature"], cwd=self.repo, check=True)
+
+        proc = subprocess.run(
+            ["bash", ORCH_SCRIPT, "complete", "dev", "--verdict=success"],
+            capture_output=True, text=True, cwd=self.repo,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        fields = self._parse_kv_output(proc.stdout)
+        self.assertEqual(fields["ACTION"], "dispatch")
+        self.assertEqual(fields["PHASE"], "e2e")
+
     # ── tests ──────────────────────────────────────────────────
 
     def test_resume_after_dev_phase(self):
