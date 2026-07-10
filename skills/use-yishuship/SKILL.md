@@ -38,6 +38,10 @@ state is a contract failure (see `docs/decisions/DEC-0005-activation-contract.md
    ```text
    [yishuship] mode=<pm|design|dev|review|qa|e2e|handoff|auto|...> phase=<phase> task=<task_id>
    ```
+5. **State Sense** - before executing, show the user `sense_report` from bootstrap
+   `status` (or SessionStart `YISHUSHIP_STATE_SENSE`). Required fields:
+   现在 / 缺什么 / 下一步 / 做完后(effect) / 你怎么确认(presentation) / 先感受(preview).
+   Naked next steps without effect + presentation + preview are forbidden.
 
 ### Delivery intents (default-on)
 
@@ -73,8 +77,9 @@ Silent skip of delivery process is forbidden.
 3. For non-trivial product or engineering work, read `../.shared/matt-pocock-standard.md` and `../../vendor/mattpocock-skills/skills/engineering/ask-matt/SKILL.md` before choosing the route.
 4. Classify the request as product, architecture selection, architecture detail, implementation, review, QA, E2E, refactor, docs, handoff, growth, conversation, or L0_bypass.
 5. For delivery intents: enter state (bootstrap enter or equivalent) and announce before business source edits.
-6. Choose the lightest route that preserves quality.
-7. If the route is ambiguous, ask one short question; otherwise dispatch or state the next skill directly.
+6. Present State Sense (`sense_report`) to the user; one next step with effect/presentation/preview.
+7. Choose the lightest route that preserves quality.
+8. If the route is ambiguous, ask one short question; otherwise dispatch or state the next skill directly.
 
 ## Matt Flow Layer
 
@@ -180,9 +185,11 @@ PM 层回答"做不做"，工程层回答"怎么做"。两层独立运作，PM �
 
 ## Completion Gate
 
-Done means the next action is unambiguous: a selected `/yishuship:*` skill, a
-direct local fix path, or one blocking question. Do not end with multiple
-equivalent options unless the user explicitly asks to compare them.
+Done means the next action is unambiguous **and causally closed**: a selected
+`/yishuship:*` skill (or direct local fix / one blocking question), plus what
+changes after it, how the user verifies, and a feel-first preview when possible.
+Do not end with multiple equivalent options unless the user explicitly asks to
+compare them.
 
 ## [Router] Report Card
 
@@ -191,6 +198,9 @@ equivalent options unless the user explicitly asks to compare them.
 | Status | <ROUTED / ASK_USER / BLOCKED> |
 | Intent | <product / architecture-selection / architecture-detail / implementation / review / QA / E2E / refactor / docs / handoff / growth / conversation> |
 | Route | </yishuship:* or direct action> |
+| Effect | <what changes after this step> |
+| Presentation | <how user verifies> |
+| Preview | <smallest feel-first slice> |
 | Reason | <one sentence> |
 | Artifacts | <existing `.ship/tasks/<task_id>/` if relevant> |
 
