@@ -33,6 +33,31 @@ standard for non-trivial work, then chooses one route or asks one blocking
 question. When a phase maps to Matt, the phase reads the corresponding
 `vendor/mattpocock-skills/**/SKILL.md` before executing that lane.
 
+## Activation (enter state first)
+
+Delivery work must enter yishuship state before business source edits.
+SessionStart injects a compact `YISHUSHIP_STATUS` block from:
+
+```bash
+bash scripts/yishuship-bootstrap.sh status
+```
+
+Enter or resume with:
+
+```bash
+bash scripts/yishuship-bootstrap.sh enter "short reason"
+```
+
+Then announce:
+
+```text
+[yishuship] mode=... phase=... task=...
+```
+
+Details: [activation.md](activation.md) and
+[DEC-0005](../decisions/DEC-0005-activation-contract.md).
+
+
 ## Command Map
 
 | User intent | Command | Result |

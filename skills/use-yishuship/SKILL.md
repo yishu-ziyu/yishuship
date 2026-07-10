@@ -15,13 +15,66 @@ allowed-tools:
 
 你是一个有产品判断力的超级个体。收到请求后，选择最小有用的路由。
 
+## Activation Hard Rule (Detect → Enter → Announce)
+
+Plugin value = executed constraints. Delivery work that never enters yishuship
+state is a contract failure (see `docs/decisions/DEC-0005-activation-contract.md`).
+
+1. **Detect** - run `bash scripts/yishuship-bootstrap.sh status` (or read the
+   SessionStart `YISHUSHIP_STATUS` block). Prefer disk facts over chat memory.
+2. **Classify** - use `next_action`:
+   - `resume` → continue the active task first
+   - `route` → pick a skill below, then enter
+   - `idle` → enter only for delivery intents
+   - `bypass_ok` → project opted out; stay L0 unless user asks for yishuship
+3. **Enter / Resume** - for **delivery intents**, enter state **before any
+   business source edits**:
+   ```bash
+   bash scripts/yishuship-bootstrap.sh enter "<short reason>"
+   ```
+   Equivalent: `/yishuship:pm-intake`, `/yishuship:auto`, or any path that
+   creates `.ship/tasks/<task_id>/control/run_state.yaml`.
+4. **Announce** when entered or resumed:
+   ```text
+   [yishuship] mode=<pm|design|dev|review|qa|e2e|handoff|auto|...> phase=<phase> task=<task_id>
+   ```
+
+### Delivery intents (default-on)
+
+New feature, product direction, architecture choice, design, implementation,
+non-trivial fix, E2E, review-as-process, QA, refactor, handoff, full delivery.
+
+For these: **state before business code**. Do not edit application/library
+source until enter/resume has produced a `task_id` and you have announced.
+
+### L0 bypass (explicit only)
+
+Allowed without enter-state for:
+
+- Pure Q&A / explanation with no repo delivery
+- One-line / tiny local fix with no process need
+- User explicitly says skip yishuship / quick fix only
+- `next_action=bypass_ok` from project config
+
+When bypassing a delivery-shaped request, announce:
+
+```text
+[yishuship] mode=L0_bypass reason=<one line>
+```
+
+Silent skip of delivery process is forbidden.
+
 ## Steps
 
-1. Read `.ship/ship-auto.local.md` and `.ship/pm-state.yaml` if they exist, because an active run beats a fresh route.
-2. For non-trivial product or engineering work, read `../.shared/matt-pocock-standard.md` and `../../vendor/mattpocock-skills/skills/engineering/ask-matt/SKILL.md` before choosing the route.
-3. Classify the request as product, architecture selection, architecture detail, implementation, review, QA, E2E, refactor, docs, handoff, growth, or conversation.
-4. Choose the lightest route that preserves quality.
-5. If the route is ambiguous, ask one short question; otherwise dispatch or state the next skill directly.
+1. Run bootstrap `status` (or read SessionStart `YISHUSHIP_STATUS`). If
+   `next_action=resume`, continue that task before routing new work.
+2. Read `.ship/ship-auto.local.md` and `.ship/pm-state.yaml` if they exist,
+   because an active run beats a fresh route.
+3. For non-trivial product or engineering work, read `../.shared/matt-pocock-standard.md` and `../../vendor/mattpocock-skills/skills/engineering/ask-matt/SKILL.md` before choosing the route.
+4. Classify the request as product, architecture selection, architecture detail, implementation, review, QA, E2E, refactor, docs, handoff, growth, conversation, or L0_bypass.
+5. For delivery intents: enter state (bootstrap enter or equivalent) and announce before business source edits.
+6. Choose the lightest route that preserves quality.
+7. If the route is ambiguous, ask one short question; otherwise dispatch or state the next skill directly.
 
 ## Matt Flow Layer
 
