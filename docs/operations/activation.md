@@ -21,15 +21,28 @@ Contract: `docs/decisions/DEC-0005-activation-contract.md`.
 bash scripts/yishuship-bootstrap.sh status
 ```
 
-Example (active task):
+Example (active task + State Sense):
 
 ```text
 enabled: true
 active_task: my-feature
-phase: dev
+phase: review
 next_action: resume
 reason: active task via run_state
+sense_stage: verified_partial
+sense_have: input,pm_handoff,plan,e2e
+sense_missing: qa
+sense_where: 有进行中任务「my-feature」，当前 phase=review，粗阶段=...
+sense_gap: 缺：qa
+sense_next: /yishuship:review
+sense_effect: 在扩大范围前暴露正确性/规格偏差...
+sense_presentation: 按严重级别列出的 findings...
+sense_preview: 先只扫当前 diff，不出修复 PR...
+sense_report: 【现在】... | 【缺什么】... | 【下一步】... | 【做完后】... | 【你怎么确认】... | 【先感受】...
 ```
+
+State Sense rule: never give a naked next step.
+Every suggestion must include effect + presentation + preview.
 
 Enablement markers (any one is enough, unless config sets `enabled: false`):
 

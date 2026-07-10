@@ -75,6 +75,9 @@ class ActivationLayerTests(unittest.TestCase):
         self.assertEqual(kv.get("active_task"), "none")
         self.assertEqual(kv.get("phase"), "none")
         self.assertEqual(kv.get("next_action"), "idle")
+        self.assertIn("sense_where", kv)
+        self.assertIn("sense_report", kv)
+        self.assertIn("【现在】", kv.get("sense_report", ""))
 
     def test_status_with_enabled_marker_routes(self) -> None:
         repo = init_git_repo()
@@ -88,6 +91,7 @@ class ActivationLayerTests(unittest.TestCase):
         self.assertEqual(kv.get("enabled"), "true")
         self.assertEqual(kv.get("active_task"), "none")
         self.assertEqual(kv.get("next_action"), "route")
+        self.assertIn("enter", kv.get("sense_next", "").lower() + kv.get("sense_report", "").lower())
 
     def test_status_with_config_enabled_false_is_bypass_ok(self) -> None:
         repo = init_git_repo()
@@ -128,6 +132,56 @@ class ActivationLayerTests(unittest.TestCase):
         self.assertEqual(skv.get("enabled"), "true")
         self.assertEqual(skv.get("active_task"), task_id)
         self.assertEqual(skv.get("next_action"), "resume")
+        self.assertTrue(skv.get("sense_next"), "sense_next required")
+        self.assertTrue(skv.get("sense_effect"), "sense_effect required")
+        self.assertTrue(skv.get("sense_presentation"), "sense_presentation required")
+        self.assertTrue(skv.get("sense_preview"), "sense_preview required")
+        report = skv.get("sense_report", "")
+        self.assertIn("【现在】", report)
+        self.assertIn("【做完后】", report)
+        self.assertIn("【先感受】", report)
+
+    def test_status_sense_for_review_phase(self) -> None:
+        repo = init_git_repo()
+        task_id = "sense-review-task"
+        control = repo / ".ship" / "tasks" / task_id / "control"
+        product = repo / ".ship" / "tasks" / task_id / "product"
+        delivery = repo / ".ship" / "tasks" / task_id / "delivery"
+        plan = repo / ".ship" / "tasks" / task_id / "plan"
+        e2e = repo / ".ship" / "tasks" / task_id / "e2e"
+        for d in (control, product, delivery, plan, e2e):
+            d.mkdir(parents=True)
+        (control / "run_state.yaml").write_text(
+            "\n".join(
+                [
+                    f"task_id: {task_id}",
+                    "active: true",
+                    "current_phase: review",
+                    "status: running",
+                    'updated_at: "2026-07-10T00:00:00Z"',
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        (product / "00-product-type.json").write_text('{"product_type":"C"}\n', encoding="utf-8")
+        (product / "08-prd.md").write_text("# PRD\n\nseams\n", encoding="utf-8")
+        (delivery / "design-spec.md").write_text("# design\n", encoding="utf-8")
+        (plan / "spec.md").write_text("# spec\n", encoding="utf-8")
+        (plan / "plan.md").write_text("# plan\n", encoding="utf-8")
+        (e2e / "report.md").write_text("# e2e ok\n", encoding="utf-8")
+
+        proc = run_bootstrap(repo, "status")
+        self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+        kv = parse_kv(proc.stdout)
+        self.assertEqual(kv.get("phase"), "review")
+        self.assertEqual(kv.get("next_action"), "resume")
+        self.assertIn("review", kv.get("sense_next", ""))
+        self.assertIn("pm_handoff", kv.get("sense_have", ""))
+        # Causal chain required (no naked next step)
+        self.assertTrue(kv.get("sense_effect"))
+        self.assertTrue(kv.get("sense_presentation"))
+        self.assertTrue(kv.get("sense_preview"))
 
     def test_enter_reuses_active_task(self) -> None:
         repo = init_git_repo()
@@ -175,8 +229,10 @@ class ActivationLayerTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         # With jq present, stdout is JSON wrapping additionalContext.
         self.assertIn("YISHUSHIP_STATUS", proc.stdout)
+        self.assertIn("YISHUSHIP_STATE_SENSE", proc.stdout)
         self.assertIn("next_action", proc.stdout)
         self.assertIn("enabled", proc.stdout)
+        self.assertIn("sense_report", proc.stdout)
 
 
 if __name__ == "__main__":

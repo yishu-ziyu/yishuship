@@ -73,11 +73,27 @@ Business source means application/library code the user asked to change.
 Editing yishuship control artifacts (`.ship/`, plans, decisions) to establish
 state is allowed before announcement completes.
 
-### 4. Host adapters implement the same contract
+### 4. After enter: State Sense before execute
+
+`bootstrap status` must diagnose project/task state for humans, not only machines:
+
+| Field | Meaning |
+|-------|---------|
+| `sense_where` | Where we are now |
+| `sense_gap` | What is missing |
+| `sense_next` | One next skill/action |
+| `sense_effect` | What changes after that step |
+| `sense_presentation` | How the user verifies the change |
+| `sense_preview` | Smallest feel-first slice before full commit |
+| `sense_report` | One pasteable Chinese line with all six |
+
+Naked "next step" without effect/presentation/preview is a contract violation.
+
+### 5. Host adapters implement the same contract
 
 | Host surface | Responsibility |
 |--------------|----------------|
-| SessionStart hook | Inject structured `YISHUSHIP_STATUS` from bootstrap `status` |
+| SessionStart hook | Inject structured `YISHUSHIP_STATUS` + `YISHUSHIP_STATE_SENSE` from bootstrap `status` |
 | Router skill (`use-yishuship`) | Hard rule: enter before business edits; announce; L0 path |
 | `scripts/yishuship-bootstrap.sh` | Canonical Detect / Enter / Status |
 | PreToolUse / Stop hooks | Optional enforcement; **not** required for contract validity |

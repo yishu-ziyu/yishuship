@@ -28,15 +28,17 @@ fi
 
 NEXT_ACTION=""
 ACTIVE_TASK=""
+SENSE_REPORT=""
 if [ -n "$BOOTSTRAP_STATUS" ]; then
   NEXT_ACTION=$(printf '%s\n' "$BOOTSTRAP_STATUS" | grep -E '^next_action:' | head -1 | sed 's/^next_action:[[:space:]]*//' || true)
   ACTIVE_TASK=$(printf '%s\n' "$BOOTSTRAP_STATUS" | grep -E '^active_task:' | head -1 | sed 's/^active_task:[[:space:]]*//' || true)
+  SENSE_REPORT=$(printf '%s\n' "$BOOTSTRAP_STATUS" | grep -E '^sense_report:' | head -1 | sed 's/^sense_report:[[:space:]]*//' || true)
 fi
 
 RESUME_LINE=""
 case "$NEXT_ACTION" in
   resume)
-    RESUME_LINE="- Active task detected (${ACTIVE_TASK:-unknown}). Resume that task before starting new work."
+    RESUME_LINE="- Active task detected (${ACTIVE_TASK:-unknown}). After enter/resume, show State Sense (sense_report) to the user before executing."
     ;;
   route)
     RESUME_LINE="- yishuship is enabled with no active task. Classify via /yishuship:use-yishuship, then enter state before business source edits."
@@ -59,8 +61,13 @@ phase: none
 next_action: idle
 reason: bootstrap unavailable}
 </YISHUSHIP_STATUS>
+<YISHUSHIP_STATE_SENSE>
+${SENSE_REPORT:-unavailable}
+After enter/resume, present this diagnosis to the user (where / gap / next / effect / how to verify / preview) before coding.
+Do not give a naked next step without effect + presentation + preview.
+</YISHUSHIP_STATE_SENSE>
 <YISHUSHIP_ROUTING>
-yishuship is available. At session start, read YISHUSHIP_STATUS (disk facts).
+yishuship is available. At session start, read YISHUSHIP_STATUS (disk facts) and YISHUSHIP_STATE_SENSE.
 - Consult /yishuship:use-yishuship when the request may need yishuship process.
 - Delivery intents: enter state (bootstrap enter or equivalent) before business source edits; announce [yishuship] mode=... phase=... task=...
 - L0 only for tiny fixes / pure Q&A, or explicit bypass; announce mode=L0_bypass.
