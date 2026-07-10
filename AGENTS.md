@@ -45,4 +45,5 @@ echo '{"cwd":"/path","tool_name":"Edit"}' | bash scripts/phase-guardrail.sh
 - 产出物放 `.ship/tasks/<task_id>/`
 - 决策沉淀到 `docs/decisions/DEC-NNNN.md`
 - 非平凡工程流程遵循 `skills/.shared/matt-pocock-standard.md`，并按 phase 读取对应的 `vendor/mattpocock-skills/**/SKILL.md`
+- 执行秩序遵循 `skills/.shared/execution-model.md`：阶段依赖串行、阶段内可并行、失败回环
 - Conventional Commits: `feat(pm):`, `fix(skill):`, `docs(readme):`

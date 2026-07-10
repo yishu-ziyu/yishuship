@@ -25,12 +25,18 @@ alignment → PRD/seams → vertical slices → TDD implementation → review �
 
 ## Hard Rules
 
+Read `../.shared/execution-model.md` before running. Auto is Layer-1 serial
+across stages; Layer-2 parallel stays **inside** each phase skill; Layer-3 is
+orchestrator `*_fix` / retry then escalate.
+
 - The orchestrator owns `.ship/ship-auto.local.md`; do not edit it manually.
 - Do not dispatch design until the orchestrator emits `PHASE:pm_intake` and then accepts `pm_intake:success`.
 - Do not skip Matt's alignment/shared-language layer; `pm_intake` must settle product intent, key terms, and hard-to-reverse decisions before engineering.
 - If a design question needs a runnable answer, create a prototype branch through `design`/`dev` and preserve the answer in artifacts before continuing.
 - Do not claim completion unless the orchestrator emits `ACTION:done`.
 - If the orchestrator emits `ACTION:escalate`, stop and report the blocker instead of continuing by hand.
+- On `fail`/`blocked` for e2e/review/qa: follow orchestrator fix loops (`*_fix` → re-check). Do not advance the spine while the failing gate is red.
+- Do not invent cross-stage parallel (e.g. pm_intake and dev at once) under auto.
 
 ## Steps
 

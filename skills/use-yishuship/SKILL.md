@@ -81,6 +81,24 @@ Silent skip of delivery process is forbidden.
 7. Choose the lightest route that preserves quality.
 8. If the route is ambiguous, ask one short question; otherwise dispatch or state the next skill directly.
 
+## Execution Model (order / parallel / loops)
+
+Read `../.shared/execution-model.md` before choosing multi-step routes.
+
+```text
+Layer 1  Stage dependencies   serial when required
+Layer 2  Intra-stage work     parallel when safe
+Layer 3  Failure              loop back, do not fake forward
+```
+
+- Do not open a stage whose upstream artifacts are missing.
+- Prefer parallel **inside** design/dev (peer investigate, story waves), not
+  parallel product-write + app-code-write as default.
+- On fail: fix → re-run the failing check; after budget → BLOCKED/escalate.
+
+When stating a route, include a short `[execution]` line:
+`stage` / `dependency` / `parallel` / `loop`.
+
 ## Matt Flow Layer
 
 Use Matt Pocock's vendored flow as the engineering architecture standard:

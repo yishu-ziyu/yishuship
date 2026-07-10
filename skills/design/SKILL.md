@@ -25,9 +25,14 @@ You must read the code yourself — delegating investigation loses the
 context needed to write a good plan. A peer agent investigates
 independently and produces its own spec for adversarial comparison.
 
-Read `../.shared/matt-pocock-standard.md` before planning non-trivial work.
+Read `../.shared/matt-pocock-standard.md` and `../.shared/execution-model.md`
+before planning non-trivial work.
 Design must preserve Matt's alignment → prototype-if-needed → PRD/seams →
 vertical-slice flow, then adapt it to yishuship's adversarial host/peer model.
+
+**Execution model:** Layer 1 - design only after product handoff when required.
+Layer 2 - host ∥ peer investigation (parallel), then serial diff/plan/drill.
+Layer 3 - drill/diff failures revise and re-check (bounded), not silent pass.
 
 Before executing those lanes, read the matching upstream Matt skills:
 

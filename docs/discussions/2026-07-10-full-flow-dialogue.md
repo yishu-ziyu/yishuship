@@ -49,16 +49,18 @@ X-side signal (paraphrase, not gospel):
 | # | Segment | Status | Closed claim |
 |---|---------|--------|--------------|
 | 0 | 协作方式 + 认知负荷 | closed | 分段+落盘；禁瀑布 |
-| 1 | yishuship 是什么 / 不是什么 | **current** | |
-| 2 | 进态 Activation + State Sense | pending | |
-| 3 | 产品层 pm-intake 骨架 | pending | |
-| 4 | 产品层 21 checkpoints 怎么用 | pending | |
-| 5 | 工程 design 对抗式 | pending | |
-| 6 | 工程 dev 垂直切片 + TDD | pending | |
-| 7 | e2e / review / qa 验证三角 | pending | |
-| 8 | handoff + auto 状态机 | pending | |
-| 9 | 强制力 hooks 与跨宿主缺口 | pending | |
-| 10 | 全流程一张因果图 + 你的决策 | pending | |
+| 1 | yishuship 是什么 / 不是什么 | closed | 可插拔交付 runtime；五件套形态 |
+| 1b | 仓库 / SkillOpt 定位 | closed | 新仓 yishuship；SkillOpt 非运行时 |
+| 2 | 内部上下游（谁先谁后） | closed | 依赖顺序非死串行 |
+| 3 | 进态 Activation + State Sense | pending | |
+| 4 | 产品层 pm-intake 骨架 | pending | |
+| 5 | 产品层 21 checkpoints 怎么用 | pending | |
+| 6 | 工程 design 对抗式 | pending | |
+| 7 | 工程 dev 垂直切片 + TDD | pending | |
+| 8 | e2e / review / qa 验证三角 | pending | |
+| 9 | handoff + auto 状态机 | pending | |
+| 10 | 强制力 hooks 与跨宿主缺口 | pending | |
+| 11 | 全流程一张因果图 + 你的决策 | pending | |
 
 ## Segment log
 
@@ -181,6 +183,9 @@ Rejected alternatives: multi-plugin (UX/state split), pure prompts (no teeth), p
 **Pressure note:** Without indexing the original X→Git trail the user used at build time, "溯源" is theater. Next: user points to bookmark list / notes path, or we harvest from chat history later.
 
 ## Code already landed (context)
+
+| DEC-0007 execution-model | serial deps + intra parallel + fail loops |
+
 
 | Matt 1.1.0 sync | DEC-0006 vendor `d574778`; `to-spec`/`to-tickets`/`wayfinder`/`research` |
 

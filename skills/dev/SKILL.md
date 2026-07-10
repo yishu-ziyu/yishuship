@@ -25,10 +25,14 @@ HOST IMPLEMENTS. PEER CROSS-VALIDATES.
 EVERY FINDING NEEDS FILE:LINE + EVIDENCE.
 ```
 
-Read `../.shared/matt-pocock-standard.md` before implementation. `/dev`
-inherits Matt's `implement` + `tdd` discipline: one vertical slice at a time,
-red before green at agreed seams, then review. Do not turn a vertical slice
-into horizontal layer batches.
+Read `../.shared/matt-pocock-standard.md` and `../.shared/execution-model.md`
+before implementation. `/dev` inherits Matt's `implement` + `tdd` discipline:
+one vertical slice at a time, red before green at agreed seams, then review.
+Do not turn a vertical slice into horizontal layer batches.
+
+**Execution model:** Layer 1 - dev only with spec/plan (or explicit fix mode).
+Layer 2 - parallel stories only inside a wave with no file overlap.
+Layer 3 - peer FAIL → implementer fix → re-review (max rounds); then BLOCKED.
 
 Before coding, read:
 
