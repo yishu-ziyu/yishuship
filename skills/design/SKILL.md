@@ -33,8 +33,10 @@ Before executing those lanes, read the matching upstream Matt skills:
 
 - `../../vendor/mattpocock-skills/skills/engineering/grill-with-docs/SKILL.md` when alignment or domain language is unresolved.
 - `../../vendor/mattpocock-skills/skills/engineering/prototype/SKILL.md` when a design question needs runnable evidence.
-- `../../vendor/mattpocock-skills/skills/engineering/to-issues/SKILL.md` before writing implementation slices.
+- `../../vendor/mattpocock-skills/skills/engineering/to-tickets/SKILL.md` before writing implementation slices.
 - `../../vendor/mattpocock-skills/skills/engineering/codebase-design/SKILL.md` when module boundaries, interfaces, seams, or test surfaces matter.
+- `../../vendor/mattpocock-skills/skills/engineering/research/SKILL.md` when design depends on primary sources outside the repo.
+- `../../vendor/mattpocock-skills/skills/engineering/wayfinder/SKILL.md` when the design program cannot fit in one session.
 
 ## Runtime Resolution
 

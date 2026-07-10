@@ -30,8 +30,8 @@ skills/.shared/matt-pocock-standard.md
 | `ask-matt` router | `use-yishuship` / `auto` 路由脑 |
 | `grill-with-docs` + `domain-modeling` | `pm-intake` 和 `design` 的对齐、术语、决策沉淀 |
 | `prototype` | PM/design 中无法纸面决策的问题分支 |
-| `to-prd` | `pm-intake` 的 PRD 和测试 seam 确认 |
-| `to-issues` | `design/dev` 的 vertical slice 拆分 |
+| `to-spec` | `pm-intake` 的 PRD 和测试 seam 确认 |
+| `to-tickets` | `design/dev` 的 vertical slice 拆分 |
 | `implement` + `tdd` | `dev` 的 red-green slice 实现 |
 | `diagnosing-bugs` | hard bug 修复前的 tight feedback loop |
 | `codebase-design` | `design/refactor/arch-design` 的 deep module vocabulary |
@@ -53,6 +53,8 @@ skills/.shared/matt-pocock-standard.md
 2026-07-02 加入 SkillOpt Matt flow 硬评分矩阵后，当前评为 **8.1/10**。
 2026-07-02 修复 PM design seed 并跑通完整 test split 后，评为 **8.4/10**。
 2026-07-02 增加 Matt upstream runtime activation 和 `/yishuship:matt` 后，当前评为 **8.8/10**。
+2026-07-10 同步上游 **1.1.0**（`to-spec` / `to-tickets` / `wayfinder` / `research`）见 **DEC-0006**。
+命名与路径对齐后，标准层诚实度上升；SkillOpt hard-node 字符串若仍写旧名需另开修复。
 
 之前只能给约 **4.5/10** 的原因：
 
@@ -83,7 +85,7 @@ skills/.shared/matt-pocock-standard.md
 继续提升到 **8.8/10** 的原因：
 
 - 每个 yishuship 工程 phase 已从“读 Matt 标准摘要”升级为“读取对应 Matt upstream `SKILL.md` 后执行”。
-- 新增 `/yishuship:matt` 作为直接 upstream adapter，可按名称运行 `ask-matt`、`grill-with-docs`、`to-prd`、`to-issues`、`implement`、`tdd`、`code-review`、`handoff` 等 vendored skills。
+- 新增 `/yishuship:matt` 作为直接 upstream adapter，可按名称运行 `ask-matt`、`grill-with-docs`、`to-spec`、`to-tickets`、`implement`、`tdd`、`code-review`、`handoff` 等 vendored skills。
 - `skills/.shared/matt-pocock-standard.md` 现在定义 runtime activation map，而不只是流程映射。
 
 还不是 9+/10 的原因：

@@ -26,8 +26,9 @@ Also read the relevant upstream Matt skills before executing their lane:
 - Always read `../../vendor/mattpocock-skills/skills/engineering/grill-with-docs/SKILL.md`.
 - Always read `../../vendor/mattpocock-skills/skills/productivity/grilling/SKILL.md`.
 - Always read `../../vendor/mattpocock-skills/skills/engineering/domain-modeling/SKILL.md`.
-- Read `../../vendor/mattpocock-skills/skills/engineering/to-prd/SKILL.md` before writing PRD/spec artifacts.
+- Read `../../vendor/mattpocock-skills/skills/engineering/to-spec/SKILL.md` before writing PRD/spec artifacts.
 - Read `../../vendor/mattpocock-skills/skills/engineering/prototype/SKILL.md` when a product/design question needs a runnable answer.
+- Read `../../vendor/mattpocock-skills/skills/engineering/research/SKILL.md` when product claims need primary-source investigation (official docs, APIs, first-party code).
 
 ## Hard Rules
 
@@ -278,7 +279,7 @@ product/08-prd.md
 ## Out of Scope
 ```
 
-Testing seams follow Matt's `to-prd` standard: prefer the highest existing seam
+Testing seams follow Matt's `to-spec` standard: prefer the highest existing seam
 that verifies user-visible behavior; propose new seams only when existing ones
 cannot catch the important behavior.
 

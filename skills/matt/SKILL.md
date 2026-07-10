@@ -3,8 +3,9 @@ name: matt
 description: >
   Direct runtime adapter for vendored Matt Pocock skills inside yishuship. Use
   when the user asks to use Matt's skills, names ask-matt, grill-me,
-  grill-with-docs, to-prd, to-issues, implement, tdd, diagnosing-bugs,
-  domain-modeling, codebase-design, code-review, prototype, triage,
+  grill-with-docs, to-spec, to-prd (alias), to-tickets, to-issues (alias),
+  wayfinder, research, implement, tdd, diagnosing-bugs, domain-modeling,
+  codebase-design, code-review, prototype, triage,
   improve-codebase-architecture, handoff, writing-great-skills, teach, or wants
   yishuship to apply Matt's original workflow rather than only yishuship's
   adapted phases.
@@ -16,6 +17,8 @@ This skill makes Matt's vendored skills active at runtime. It does not rewrite
 or summarize them. It chooses the upstream `SKILL.md`, reads it completely, then
 executes that skill's process in the current yishuship context.
 
+Vendored line: package **1.1.0** (see `vendor/README.md`).
+
 ## Hard Rule
 
 Always read the selected upstream `SKILL.md` before acting. The files under
@@ -26,13 +29,15 @@ Always read the selected upstream `SKILL.md` before acting. The files under
 | User intent / name | Upstream file |
 |---|---|
 | Which Matt flow fits? `ask-matt` | `../../vendor/mattpocock-skills/skills/engineering/ask-matt/SKILL.md` |
+| Huge multi-session plan `wayfinder` | `../../vendor/mattpocock-skills/skills/engineering/wayfinder/SKILL.md` |
 | General grilling / interview | `../../vendor/mattpocock-skills/skills/productivity/grill-me/SKILL.md` |
 | Stateful grilling with project docs | `../../vendor/mattpocock-skills/skills/engineering/grill-with-docs/SKILL.md` |
 | Reusable grilling loop | `../../vendor/mattpocock-skills/skills/productivity/grilling/SKILL.md` |
 | Domain language / CONTEXT.md / ADRs | `../../vendor/mattpocock-skills/skills/engineering/domain-modeling/SKILL.md` |
-| Turn conversation into PRD | `../../vendor/mattpocock-skills/skills/engineering/to-prd/SKILL.md` |
-| Break PRD/plan into vertical issues | `../../vendor/mattpocock-skills/skills/engineering/to-issues/SKILL.md` |
-| Implement from issue/PRD | `../../vendor/mattpocock-skills/skills/engineering/implement/SKILL.md` |
+| Spec / PRD `to-spec` (alias `to-prd`) | `../../vendor/mattpocock-skills/skills/engineering/to-spec/SKILL.md` |
+| Tickets / vertical slices `to-tickets` (alias `to-issues`) | `../../vendor/mattpocock-skills/skills/engineering/to-tickets/SKILL.md` |
+| Primary-source `research` | `../../vendor/mattpocock-skills/skills/engineering/research/SKILL.md` |
+| Implement from ticket/spec | `../../vendor/mattpocock-skills/skills/engineering/implement/SKILL.md` |
 | TDD / red-green-refactor | `../../vendor/mattpocock-skills/skills/engineering/tdd/SKILL.md` |
 | Hard bug or performance regression | `../../vendor/mattpocock-skills/skills/engineering/diagnosing-bugs/SKILL.md` |
 | Deep modules / seams / interface design | `../../vendor/mattpocock-skills/skills/engineering/codebase-design/SKILL.md` |
@@ -50,15 +55,16 @@ Always read the selected upstream `SKILL.md` before acting. The files under
 
 1. Read `../.shared/matt-pocock-standard.md`.
 2. Select the smallest upstream Matt skill that fits the user request.
-3. Read the selected upstream `SKILL.md` completely.
-4. If that upstream skill points to relative files, resolve them relative to
+3. Map legacy names (`to-prd` → `to-spec`, `to-issues` → `to-tickets`) before open.
+4. Read the selected upstream `SKILL.md` completely.
+5. If that upstream skill points to relative files, resolve them relative to
    its own folder and read only the files the upstream skill says are needed.
-5. Execute the upstream skill in the current repo, preserving yishuship's
+6. Execute the upstream skill in the current repo, preserving yishuship's
    artifact conventions:
    - durable task artifacts in `.ship/tasks/<task_id>/`
    - decisions in `docs/decisions/`
    - shared language in `CONTEXT.md`
-6. If the selected Matt flow conflicts with a yishuship phase rule, keep Matt's
+7. If the selected Matt flow conflicts with a yishuship phase rule, keep Matt's
    process discipline and yishuship's artifact/verification conventions.
 
 ## Completion Gate

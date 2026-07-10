@@ -13,8 +13,10 @@ PHASE_REQUIREMENTS = {
     "matt": [
         "vendor/mattpocock-skills/skills/engineering/ask-matt/SKILL.md",
         "vendor/mattpocock-skills/skills/engineering/grill-with-docs/SKILL.md",
-        "vendor/mattpocock-skills/skills/engineering/to-prd/SKILL.md",
-        "vendor/mattpocock-skills/skills/engineering/to-issues/SKILL.md",
+        "vendor/mattpocock-skills/skills/engineering/to-spec/SKILL.md",
+        "vendor/mattpocock-skills/skills/engineering/to-tickets/SKILL.md",
+        "vendor/mattpocock-skills/skills/engineering/wayfinder/SKILL.md",
+        "vendor/mattpocock-skills/skills/engineering/research/SKILL.md",
         "vendor/mattpocock-skills/skills/engineering/implement/SKILL.md",
         "vendor/mattpocock-skills/skills/engineering/tdd/SKILL.md",
         "vendor/mattpocock-skills/skills/engineering/code-review/SKILL.md",
@@ -24,14 +26,17 @@ PHASE_REQUIREMENTS = {
         "vendor/mattpocock-skills/skills/engineering/grill-with-docs/SKILL.md",
         "vendor/mattpocock-skills/skills/productivity/grilling/SKILL.md",
         "vendor/mattpocock-skills/skills/engineering/domain-modeling/SKILL.md",
-        "vendor/mattpocock-skills/skills/engineering/to-prd/SKILL.md",
+        "vendor/mattpocock-skills/skills/engineering/to-spec/SKILL.md",
         "vendor/mattpocock-skills/skills/engineering/prototype/SKILL.md",
+        "vendor/mattpocock-skills/skills/engineering/research/SKILL.md",
     ],
     "design": [
         "vendor/mattpocock-skills/skills/engineering/grill-with-docs/SKILL.md",
         "vendor/mattpocock-skills/skills/engineering/prototype/SKILL.md",
-        "vendor/mattpocock-skills/skills/engineering/to-issues/SKILL.md",
+        "vendor/mattpocock-skills/skills/engineering/to-tickets/SKILL.md",
         "vendor/mattpocock-skills/skills/engineering/codebase-design/SKILL.md",
+        "vendor/mattpocock-skills/skills/engineering/research/SKILL.md",
+        "vendor/mattpocock-skills/skills/engineering/wayfinder/SKILL.md",
     ],
     "dev": [
         "vendor/mattpocock-skills/skills/engineering/implement/SKILL.md",
@@ -87,6 +92,17 @@ class MattRuntimeActivationTests(unittest.TestCase):
         text = (REPO_ROOT / "skills/.shared/matt-pocock-standard.md").read_text(encoding="utf-8")
         self.assertIn("Runtime Activation", text)
         self.assertIn("using Matt", text)
+        self.assertIn("to-spec", text)
+        self.assertIn("to-tickets", text)
+        self.assertIn("wayfinder", text)
+        self.assertIn("research", text)
+
+    def test_legacy_names_not_required_as_paths(self) -> None:
+        """Old to-prd / to-issues directories must not be the activation target."""
+        self.assertFalse((REPO_ROOT / "vendor/mattpocock-skills/skills/engineering/to-prd").exists())
+        self.assertFalse((REPO_ROOT / "vendor/mattpocock-skills/skills/engineering/to-issues").exists())
+        self.assertTrue((REPO_ROOT / "vendor/mattpocock-skills/skills/engineering/to-spec/SKILL.md").is_file())
+        self.assertTrue((REPO_ROOT / "vendor/mattpocock-skills/skills/engineering/to-tickets/SKILL.md").is_file())
 
 
 if __name__ == "__main__":

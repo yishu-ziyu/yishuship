@@ -103,7 +103,7 @@ Examples:
 
 ```text
 /yishuship:matt use grill-with-docs for this idea
-/yishuship:matt run to-prd on our conversation
+/yishuship:matt run to-spec on our conversation
 /yishuship:matt use tdd for this issue
 /yishuship:matt use code-review on this diff
 ```

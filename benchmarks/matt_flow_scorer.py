@@ -28,18 +28,21 @@ FLOW_DEFINITIONS: dict[str, dict[str, object]] = {
         ],
     },
     "prd_test_seams": {
-        "label": "PRD with acceptance criteria and test seams",
+        "label": "spec/PRD with acceptance criteria and test seams",
         "patterns": [
             r"\bPRD\b",
+            r"\bto-spec\b",
             r"test seams?|测试\s*seams?|测试边界|测试接口",
             r"acceptance|验收|Given.*When.*Then",
             r"规格|spec",
         ],
     },
     "vertical_slices": {
-        "label": "vertical slices / tracer bullets",
+        "label": "vertical slices / tracer bullets / tickets",
         "patterns": [
             r"vertical slices?|tracer bullets?",
+            r"\bto-tickets\b",
+            r"wide refactor|expand[- ]contract",
             r"垂直切片|端到端切片|纵向切片",
             r"independent(?:ly)?\s+(?:demo|verify|ship)",
             r"可独立.*(?:演示|验证|交付)",

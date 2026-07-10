@@ -95,7 +95,7 @@ alignment/shared language
 ```
 
 Route product ideas to `pm-intake`, not directly to implementation, because
-`grill-with-docs` / `to-prd` alignment belongs before code. Route hard bugs
+`grill-with-docs` / `to-spec` alignment belongs before code. Route hard bugs
 to diagnosis/dev only after there is, or can be built, a tight feedback loop.
 Route codebase entropy to `refactor` or `arch-design` using the deep-module
 vocabulary from the vendored `codebase-design` skill.
