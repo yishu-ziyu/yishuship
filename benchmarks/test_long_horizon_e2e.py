@@ -114,14 +114,26 @@ class TestPmGateBlocksAgentCalls(unittest.TestCase):
         return task_dir
 
     def _create_v2_handoff(self, task_dir: Path):
-        """Create all required V2 product handoff artifacts."""
-        for f in ["00-product-type.json", "01-strategy.md", "03-problem-solution.md",
-                   "08-prd.md", "09-tech-project-plan.md"]:
-            (task_dir / "product" / f).parent.mkdir(parents=True, exist_ok=True)
-            (task_dir / "product" / f).write_text("content\n")
-        (task_dir / "delivery" / "design-spec.md").parent.mkdir(parents=True, exist_ok=True)
+        """Create minimum V2 product handoff artifacts (gate-aligned)."""
+        product = task_dir / "product"
+        product.mkdir(parents=True, exist_ok=True)
+        (product / "00-product-type.json").write_text('{"product_type":"C"}\n')
+        (product / "00b-scope-challenge.md").write_text(
+            "# Scope\n\n## Must-ship\n- x\n\n## Keep / Cut / Defer\n| a | owner | Keep | r |\n"
+        )
+        for f in ["01-strategy.md", "03-problem-solution.md", "09-tech-project-plan.md"]:
+            (product / f).write_text("content\n")
+        (product / "08-prd.md").write_text(
+            "# PRD\n\n## Success Metrics\n- m\n\n## Assumptions\n- a\n\n"
+            "## Kill Criteria\n- k\n\n## Acceptance Criteria\n- must work\n"
+        )
+        (task_dir / "control").mkdir(parents=True, exist_ok=True)
+        (task_dir / "control" / "matt-upstream.md").write_text(
+            "- vendor/mattpocock-skills/skills/engineering/to-spec/SKILL.md\n"
+        )
+        (task_dir / "delivery").mkdir(parents=True, exist_ok=True)
         (task_dir / "delivery" / "design-spec.md").write_text("content\n")
-        (task_dir / "plan" / "spec.md").parent.mkdir(parents=True, exist_ok=True)
+        (task_dir / "plan").mkdir(parents=True, exist_ok=True)
         (task_dir / "plan" / "spec.md").write_text("content\n")
 
     def test_blocks_design_agent_without_handoff(self):
@@ -1003,20 +1015,47 @@ class TestCrossSessionResume(unittest.TestCase):
                 result[key.strip()] = value.strip()
         return result
 
-    def _write_pm_intake_artifacts(self, task_dir: Path):
-        """Write all artifacts required for pm_intake -> design transition."""
-        for f in ["00-product-type.json", "01-strategy.md", "02-research.md",
-                   "03-problem-solution.md", "04-product-blueprint.md",
-                   "05-model-flow-role.md", "06-experience-spec.md",
-                   "07-data-permission-analytics.md", "08-prd.md",
-                   "09-tech-project-plan.md"]:
-            (task_dir / "product" / f).parent.mkdir(parents=True, exist_ok=True)
-            (task_dir / "product" / f).write_text("content\n")
-        (task_dir / "delivery" / "design-spec.md").parent.mkdir(parents=True, exist_ok=True)
-        (task_dir / "delivery" / "design-spec.md").write_text("content\n")
-        (task_dir / "control" / "lifecycle-checklist.yaml").parent.mkdir(parents=True, exist_ok=True)
-        (task_dir / "control" / "lifecycle-checklist.yaml").write_text("content\n")
-        (task_dir / "plan" / "spec.md").parent.mkdir(parents=True, exist_ok=True)
+    def _write_pm_intake_artifacts(self, task_dir: Path, *, lite: bool = False):
+        """Write artifacts for pm_intake -> design. full suite unless lite=True."""
+        product = task_dir / "product"
+        product.mkdir(parents=True, exist_ok=True)
+        (product / "00-product-type.json").write_text(
+            '{"product_type":"C","primary_user":"u","core_scene":"s"}\n'
+        )
+        (product / "00b-scope-challenge.md").write_text(
+            "# Scope\n\n## Must-ship\n- core\n\n## Keep / Cut / Defer\n| x | owner | Keep | reason |\n"
+        )
+        for f in ["01-strategy.md", "03-problem-solution.md", "09-tech-project-plan.md"]:
+            (product / f).write_text("# doc\n\ncontent\n")
+        (product / "08-prd.md").write_text(
+            "# PRD\n\n"
+            "## Product Requirements\n- must ship feature\n\n"
+            "## Acceptance Criteria\n- The feature must work\n\n"
+            "## Success Metrics\n- task complete rate > 0\n\n"
+            "## Assumptions\n- users want this; validate via pilot\n\n"
+            "## Kill Criteria\n- stop if zero usage after 2 weeks\n\n"
+            "## Testing Seams\n- CLI exit code\n"
+        )
+        if not lite:
+            for f in [
+                "02-research.md",
+                "04-product-blueprint.md",
+                "05-model-flow-role.md",
+                "06-experience-spec.md",
+                "07-data-permission-analytics.md",
+            ]:
+                (product / f).write_text("# doc\n\ncontent\n")
+        (task_dir / "delivery").mkdir(parents=True, exist_ok=True)
+        (task_dir / "delivery" / "design-spec.md").write_text("# design-spec\n\nmust ship\n")
+        (task_dir / "control").mkdir(parents=True, exist_ok=True)
+        (task_dir / "control" / "lifecycle-checklist.yaml").write_text("checkpoints: []\n")
+        (task_dir / "control" / "matt-upstream.md").write_text(
+            "# Matt upstream read\n\n"
+            "- vendor/mattpocock-skills/skills/engineering/grill-with-docs/SKILL.md\n"
+            "- vendor/mattpocock-skills/skills/engineering/to-spec/SKILL.md\n"
+            "- vendor/mattpocock-skills/skills/engineering/domain-modeling/SKILL.md\n"
+        )
+        (task_dir / "plan").mkdir(parents=True, exist_ok=True)
         (task_dir / "plan" / "spec.md").write_text(
             "# Spec\n\n## Acceptance Criteria\n- The feature must work\n"
         )
@@ -1134,6 +1173,50 @@ class TestCrossSessionResume(unittest.TestCase):
         self.assertEqual(fields["PHASE"], "qa")
 
     # ── tests ──────────────────────────────────────────────────
+
+
+    def test_pm_lite_skips_full_suite_files(self):
+        """scope_mode=lite accepts minimum handoff without 02/04-07."""
+        task_id = self._init_task("fix login timeout")
+        # detect_scope_mode should have set lite from leading "fix"
+        content = (Path(self.repo) / ".ship" / "ship-auto.local.md").read_text()
+        self.assertIn("scope_mode: lite", content)
+        task_dir = Path(self.repo) / ".ship" / "tasks" / task_id
+        self._write_pm_intake_artifacts(task_dir, lite=True)
+        pm_state = Path(self.repo) / ".ship" / "pm-state.yaml"
+        pm_state.write_text(f"task_id: {task_id}\nphase: complete\n")
+        proc = subprocess.run(
+            ["bash", ORCH_SCRIPT, "complete", "pm_intake", "--verdict=success"],
+            capture_output=True, text=True, cwd=self.repo,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+        fields = self._parse_kv_output(proc.stdout)
+        self.assertEqual(fields["ACTION"], "dispatch")
+        self.assertEqual(fields["PHASE"], "design")
+
+    def test_pm_full_rejects_missing_research(self):
+        """scope_mode=full requires 02-research etc."""
+        task_id = self._init_task("add billing feature")
+        content = (Path(self.repo) / ".ship" / "ship-auto.local.md").read_text()
+        self.assertIn("scope_mode: full", content)
+        task_dir = Path(self.repo) / ".ship" / "tasks" / task_id
+        self._write_pm_intake_artifacts(task_dir, lite=True)  # missing full suite
+        pm_state = Path(self.repo) / ".ship" / "pm-state.yaml"
+        pm_state.write_text(f"task_id: {task_id}\nphase: complete\n")
+        proc = subprocess.run(
+            ["bash", ORCH_SCRIPT, "complete", "pm_intake", "--verdict=success"],
+            capture_output=True, text=True, cwd=self.repo,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        # complete remaps validation fail to fail verdict path — may dispatch retry
+        out = proc.stdout + proc.stderr
+        self.assertTrue(
+            "02-research" in out or "fail" in out.lower() or "Retrying" in out or "dispatch" in out,
+            out,
+        )
+        # Must not advance to design on failed validation
+        fields = self._parse_kv_output(proc.stdout)
+        self.assertNotEqual(fields.get("PHASE"), "design")
 
     def test_resume_after_dev_phase(self):
         """init -> complete pm_intake -> complete design -> resume dispatches

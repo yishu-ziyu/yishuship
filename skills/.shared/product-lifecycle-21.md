@@ -29,6 +29,7 @@ Idea
 
   product/
     00-product-type.json
+    00b-scope-challenge.md
     01-strategy.md
     02-research.md
     03-problem-solution.md
@@ -56,6 +57,7 @@ Idea
   control/
     run_state.yaml
     lifecycle-checklist.yaml
+    matt-upstream.md
 ```
 
 ## Product Type Gate
@@ -148,12 +150,26 @@ Total score stays compatible with the old 189-point frame:
 
 ## Engineering Gate
 
-Entering engineering should require only the minimum product handoff, not a perfect 189 score:
+### Minimum handoff (`scope_mode: lite` or gate for design/dev)
+
+Not a perfect 189 score. Must include:
 
 - `product/00-product-type.json`
+- `product/00b-scope-challenge.md`
 - `product/01-strategy.md`
 - `product/03-problem-solution.md`
-- `product/08-prd.md`
+- `product/08-prd.md` (with Success Metrics, Assumptions, Kill Criteria)
 - `product/09-tech-project-plan.md`
+- `control/matt-upstream.md`
+- `control/lifecycle-checklist.yaml`
+- `delivery/design-spec.md`
+- `plan/spec.md`
+
+### Full suite (`scope_mode: full` under auto)
+
+Also require:
+
+- `02-research.md`, `04-product-blueprint.md`
+- `05-model-flow-role.md`, `06-experience-spec.md`, `07-data-permission-analytics.md`
 
 Existing legacy tasks with `pm/01-discovery.md`, `pm/02-definition.md`, `pm/03-design.md`, and `pm/04-validation.md` remain valid through fallback checks.

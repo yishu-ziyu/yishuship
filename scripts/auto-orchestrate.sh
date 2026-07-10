@@ -286,7 +286,11 @@ write_run_state() {
 # design phase's execution drill (Phase 6) but keeps peer investigation.
 detect_scope_mode() {
   local description="$1"
+  # lite: small product/eng work — minimum PM handoff only
   if printf '%s' "$description" \
+    | grep -Eqi '^[[:space:]]*(fix|bug|hotfix|patch|typo|tweak|chore|small|minor|docs?)\b'; then
+    echo "lite"
+  elif printf '%s' "$description" \
     | grep -Eqi '^[[:space:]]*(refactor(ing)?|simplify|optimi[sz]e|clean[[:space:]]?up|rename|extract|dedupe|deduplicate|reorganis?e|restructure|tidy)\b'; then
     echo "refactor"
   else
@@ -441,34 +445,83 @@ dir_has_files() {
   [ -d "$dir" ] && [ -n "$(find "$dir" -maxdepth 1 -name "$pattern" -type f 2>/dev/null | head -1)" ]
 }
 
+# PRD must include success metrics, assumptions, and kill/stop criteria.
+require_prd_quality() {
+  local prd="$1"
+  require_nonempty_file "$prd" "product/08-prd.md" || return 1
+  grep -qiE '^#{1,3}[[:space:]]*(Success Metrics|成功指标|North Star|北极星)' "$prd" \
+    || { echo "product/08-prd.md missing Success Metrics / 成功指标 section"; return 1; }
+  grep -qiE '^#{1,3}[[:space:]]*(Assumptions|假设)' "$prd" \
+    || { echo "product/08-prd.md missing Assumptions / 假设 section"; return 1; }
+  grep -qiE '^#{1,3}[[:space:]]*(Kill Criteria|杀死条件|Stop Conditions|停止条件|Do Not Continue|不做/停止)' "$prd" \
+    || { echo "product/08-prd.md missing Kill/Stop criteria section"; return 1; }
+  grep -qi "acceptance\|criteria\|requirements\|must\|should\|验收" "$prd" \
+    || { echo "product/08-prd.md lacks acceptance/requirements language"; return 1; }
+}
+
+require_scope_challenge() {
+  local task_dir="$1"
+  local f="$task_dir/product/00b-scope-challenge.md"
+  require_nonempty_file "$f" "product/00b-scope-challenge.md" || return 1
+  grep -qiE 'Keep|Cut|Defer|保留|砍掉|延后|Must-ship|必做|Non-goals|非目标' "$f" \
+    || { echo "product/00b-scope-challenge.md lacks keep/cut/defer (or 必做/非目标) content"; return 1; }
+}
+
+require_matt_upstream_log() {
+  local task_dir="$1"
+  local f="$task_dir/control/matt-upstream.md"
+  require_nonempty_file "$f" "control/matt-upstream.md" || return 1
+  grep -qE 'mattpocock-skills|to-spec|grill|domain-modeling' "$f" \
+    || { echo "control/matt-upstream.md must list opened Matt SKILL paths"; return 1; }
+}
+
+# Minimum product handoff shared by lite and full (protocol Engineering Gate + P0).
+validate_pm_minimum() {
+  local task_dir="$1" task_id="$2"
+  require_json_or_yaml "$task_dir/product" "00-product-type" "product/00-product-type" || return 1
+  require_scope_challenge "$task_dir" || return 1
+  require_nonempty_file "$task_dir/product/01-strategy.md" "product/01-strategy.md" || return 1
+  require_nonempty_file "$task_dir/product/03-problem-solution.md" "product/03-problem-solution.md" || return 1
+  require_prd_quality "$task_dir/product/08-prd.md" || return 1
+  require_nonempty_file "$task_dir/product/09-tech-project-plan.md" "product/09-tech-project-plan.md" || return 1
+  require_nonempty_file "$task_dir/control/lifecycle-checklist.yaml" "control/lifecycle-checklist.yaml" || return 1
+  require_matt_upstream_log "$task_dir" || return 1
+  require_nonempty_file "$task_dir/delivery/design-spec.md" "delivery/design-spec.md" || return 1
+  require_nonempty_file "$task_dir/plan/spec.md" "plan/spec.md" || return 1
+  grep -qi "acceptance\|criteria\|requirements\|must\|should" "$task_dir/plan/spec.md" \
+    || { echo "plan/spec.md lacks engineering-facing acceptance criteria"; return 1; }
+  [ -f ".ship/pm-state.yaml" ] || { echo ".ship/pm-state.yaml missing"; return 1; }
+  grep -q "^task_id: *$task_id" ".ship/pm-state.yaml" \
+    || { echo ".ship/pm-state.yaml task_id does not match $task_id"; return 1; }
+  grep -q "^phase: *complete" ".ship/pm-state.yaml" \
+    || { echo ".ship/pm-state.yaml is not complete"; return 1; }
+}
+
+# Full PM suite (21-checkpoint map → product/01–09 dense set).
+validate_pm_full_suite() {
+  local task_dir="$1"
+  require_nonempty_file "$task_dir/product/02-research.md" "product/02-research.md" || return 1
+  require_nonempty_file "$task_dir/product/04-product-blueprint.md" "product/04-product-blueprint.md" || return 1
+  require_nonempty_file "$task_dir/product/05-model-flow-role.md" "product/05-model-flow-role.md" || return 1
+  require_nonempty_file "$task_dir/product/06-experience-spec.md" "product/06-experience-spec.md" || return 1
+  require_nonempty_file "$task_dir/product/07-data-permission-analytics.md" "product/07-data-permission-analytics.md" || return 1
+}
+
 validate_artifacts() {
   local phase="$1"
-  local task_id task_dir
+  local task_id task_dir scope_mode
   task_id=$(state_get "task_id")
   task_dir=".ship/tasks/$task_id"
+  scope_mode=$(state_get "scope_mode")
+  [ -z "$scope_mode" ] && scope_mode="full"
 
   case "$phase" in
     pm_intake)
-      require_json_or_yaml "$task_dir/product" "00-product-type" "product/00-product-type" || return 1
-      require_nonempty_file "$task_dir/product/01-strategy.md" "product/01-strategy.md" || return 1
-      require_nonempty_file "$task_dir/product/02-research.md" "product/02-research.md" || return 1
-      require_nonempty_file "$task_dir/product/03-problem-solution.md" "product/03-problem-solution.md" || return 1
-      require_nonempty_file "$task_dir/product/04-product-blueprint.md" "product/04-product-blueprint.md" || return 1
-      require_nonempty_file "$task_dir/product/05-model-flow-role.md" "product/05-model-flow-role.md" || return 1
-      require_nonempty_file "$task_dir/product/06-experience-spec.md" "product/06-experience-spec.md" || return 1
-      require_nonempty_file "$task_dir/product/07-data-permission-analytics.md" "product/07-data-permission-analytics.md" || return 1
-      require_nonempty_file "$task_dir/product/08-prd.md" "product/08-prd.md" || return 1
-      require_nonempty_file "$task_dir/product/09-tech-project-plan.md" "product/09-tech-project-plan.md" || return 1
-      require_nonempty_file "$task_dir/control/lifecycle-checklist.yaml" "control/lifecycle-checklist.yaml" || return 1
-      require_nonempty_file "$task_dir/delivery/design-spec.md" "delivery/design-spec.md" || return 1
-      require_nonempty_file "$task_dir/plan/spec.md" "plan/spec.md" || return 1
-      grep -qi "acceptance\|criteria\|requirements\|must\|should" "$task_dir/plan/spec.md" \
-        || { echo "plan/spec.md lacks engineering-facing acceptance criteria"; return 1; }
-      [ -f ".ship/pm-state.yaml" ] || { echo ".ship/pm-state.yaml missing"; return 1; }
-      grep -q "^task_id: *$task_id" ".ship/pm-state.yaml" \
-        || { echo ".ship/pm-state.yaml task_id does not match $task_id"; return 1; }
-      grep -q "^phase: *complete" ".ship/pm-state.yaml" \
-        || { echo ".ship/pm-state.yaml is not complete"; return 1; }
+      validate_pm_minimum "$task_dir" "$task_id" || return 1
+      # lite: minimum handoff only. full/refactor: full product suite.
+      if [ "$scope_mode" != "lite" ]; then
+        validate_pm_full_suite "$task_dir" || return 1
+      fi
       ;;
     design)
       file_exists_nonempty "$task_dir/plan/spec.md" || { echo "spec.md missing or empty"; return 1; }

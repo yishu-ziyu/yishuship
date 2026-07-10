@@ -42,11 +42,14 @@ has_product_type_artifact() {
 }
 
 has_v2_product_handoff() {
+  # Align with Engineering Gate minimum (lite-capable handoff).
   has_product_type_artifact && \
+  [ -s "$PRODUCT_DIR/00b-scope-challenge.md" ] && \
   [ -f "$PRODUCT_DIR/01-strategy.md" ] && \
   [ -f "$PRODUCT_DIR/03-problem-solution.md" ] && \
   [ -f "$PRODUCT_DIR/08-prd.md" ] && \
   [ -f "$PRODUCT_DIR/09-tech-project-plan.md" ] && \
+  [ -s "$TASK_DIR/control/matt-upstream.md" ] && \
   [ -f "$DELIVERY_DIR/design-spec.md" ] && \
   [ -f "$TASK_DIR/plan/spec.md" ]
 }
@@ -70,7 +73,7 @@ block() {
 # ── Rule 1: Design requires product type (V2) or discovery (V1) ──────────────
 if echo "$AGENT_PROMPT" | grep -q "yishuship:design\|yishuship:auto"; then
   if ! has_v2_product_handoff && ! has_legacy_discovery; then
-    block "[yishuship PM gate] /yishuship:design or /yishuship:auto requires a complete V2 product handoff. Please run /yishuship:pm-intake and generate at least product/00-product-type.json, product/01-strategy.md, product/03-problem-solution.md, product/08-prd.md, product/09-tech-project-plan.md, delivery/design-spec.md, and plan/spec.md. Old tasks can pass with pm/01-discovery.md."
+    block "[yishuship PM gate] /yishuship:design or /yishuship:auto needs minimum V2 handoff: product/00, 00b-scope-challenge, 01, 03, 08 (with Success Metrics/Assumptions/Kill Criteria), 09, control/matt-upstream.md, delivery/design-spec.md, plan/spec.md. Old tasks can pass with pm/01-discovery.md."
     exit 0
   fi
 fi

@@ -299,12 +299,22 @@ product/08-prd.md
 ## Risk Controls
 ```
 
-`08-prd.md` covers the executable PRD:
+`08-prd.md` covers the executable PRD. **These three sections are required**
+(auto and standalone DONE both check headings):
 
 ```markdown
 ## Product Requirements
 
 ## Acceptance Criteria
+
+## Success Metrics
+<!-- North-star or task-complete metrics; how we know this shipped well -->
+
+## Assumptions
+<!-- What we are guessing; how each will be validated or falsified -->
+
+## Kill Criteria
+<!-- Stop / do-not-continue signals if the idea is wrong -->
 
 ## Testing Seams
 
@@ -318,6 +328,13 @@ product/08-prd.md
 Testing seams follow Matt's `to-spec` standard: prefer the highest existing seam
 that verifies user-visible behavior; propose new seams only when existing ones
 cannot catch the important behavior.
+
+**Scope modes (auto `scope_mode`):**
+
+| Mode | When | Required product files |
+|------|------|------------------------|
+| `lite` | fix/bug/patch/small… | minimum handoff: 00, 00b, 01, 03, 08, 09 + design-spec + plan/spec + matt-upstream + checklist |
+| `full` / `refactor` | default new feature / product | full suite: also 02, 04, 05, 06, 07 |
 
 Update state to `phase: tech-project-plan`.
 
