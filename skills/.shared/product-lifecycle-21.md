@@ -8,6 +8,8 @@ Do not turn 21 product processes into 21 mandatory phases. Use a small number of
 
 **Scope before volume:** challenge which requirements must exist (owner, keep/cut/defer) before expanding strategy, blueprint, and PRD. Specifying a feature that should have been cut is a product bug.
 
+**Spiral, not waterfall:** the 21 checkpoints are a **lifecycle map**, not 21 steps that must finish before code. One delivery pass is one arc of a spiral. Later arcs re-open only the checkpoints that new evidence touches.
+
 ```text
 Idea
 → Product Type
@@ -17,7 +19,9 @@ Idea
 → Product Specification Gate
 → Engineering Delivery
 → Release
-→ Growth Loop
+→ Growth Loop  ──feeds next idea / scope change──┐
+      ▲                                           │
+      └────────── next cycle (partial re-open) ───┘
 ```
 
 ## Standard Task Layout
@@ -131,6 +135,90 @@ Idea
 | 18 | delivery | Development, test, release evidence | `delivery/*` |
 | 19 | operations | Launch and operation plan | `growth/01-ops-plan.md` |
 | 20 | iteration_analytics | Data analysis and next iteration | `growth/02-data-analysis.md`, `growth/03-iteration-plan.md`, `growth/04-learning.md` |
+
+## Checkpoint timing (when in the spiral)
+
+Each checkpoint has a **when** status, not only required/optional/N/A:
+
+| When | Meaning |
+|------|---------|
+| `pre_cycle` | Enough answer needed before engineering spends real build effort this cycle |
+| `in_cycle` | Deepened or finished during design/dev/verify this cycle |
+| `post_cycle` | Only meaningful after ship or with real usage/ops data |
+| `continuous` | May re-open any cycle when evidence changes |
+
+Default placement (override with reason in `lifecycle-checklist.yaml`):
+
+| # | Checkpoint | Default when |
+|---|------------|--------------|
+| 0 | product_type | `pre_cycle` |
+| 0b | scope challenge (keep/cut/defer) | `pre_cycle` |
+| 1–2 | brd / mrd | `pre_cycle` (depth scales with lite/full) |
+| 3–4 | research / current_state | `pre_cycle` on full; thin or later on lite |
+| 5–8 | problem / solution / blueprint | `pre_cycle` for boundaries; may refine `in_cycle` |
+| 9–14 | model / flow / UI / report / tracking / permission | often `pre_cycle` light + `in_cycle` deep; lite may defer some |
+| 15 | prd (+ metrics, assumptions, kill criteria) | `pre_cycle` required for handoff |
+| 16–17 | technical + project plan | `pre_cycle` enough to start; detail `in_cycle` |
+| 18 | delivery evidence | `in_cycle` / end of cycle (e2e, qa, handoff) |
+| 19 | operations | `post_cycle` (or pre-launch plan if launching) |
+| 20 | iteration analytics | `post_cycle` + **must be able to open next cycle** |
+
+### One cycle vs the map
+
+- **pm-intake** = this cycle's **pre_cycle** slice (lite minimum or full suite), not a promise that all 21 are done forever.
+- **design / dev / e2e / review / qa / handoff** = **in_cycle** execution and evidence (checkpoint 18 and in-cycle refinements).
+- **growth / learn** = **post_cycle** (19–20). Output should name which checkpoints re-open next.
+
+### Feedback links (expected loops)
+
+```text
+qa / e2e evidence  → may change assumptions, metrics, kill criteria (15)
+metrics / users    → may change problem, scope, PRD (5–8, 15, 0b)
+tech reality       → may change technical plan (16) and scope (0b)
+ops incidents      → may change permissions, tracking, ops plan (13–14, 19)
+learning (20)      → writes next input/idea.md or requirement.md and re-enters intake
+```
+
+Do not re-run all 21 from zero each time. Re-open **touched** checkpoints only, with a one-line reason.
+
+## Multi-agent cross-review (inputs and outputs)
+
+Product work must not be a single-agent monologue. Independent review of **inputs** and **outputs** is mandatory for non-trivial cycles (full scope; lite may use a lighter peer pass but cannot skip review of PRD/handoff).
+
+### Principles (aligned with continuous discovery practice)
+
+- Discovery and delivery are dual tracks: validate risk before and while building, not only after a giant PRD ([Paweł Huryn on Product Discovery](https://x.com/PawelHuryn/status/1756701712537059715) - five risks: value, usability, viability, feasibility, ethics; PM+design+engineering perspectives).
+- Avoid "project disguised as product": no pure waterfall of requirements then feature factory without discovery or metrics ([red flags / better way](https://x.com/PawelHuryn/status/1725421757530522065)).
+- Kill weak scope early with explicit criteria ([example kill-before-code framing](https://x.com/WasimShips/status/2075180804343316700)).
+- Cross-functional challenge beats one role deciding alone.
+
+### Required pattern in yishuship
+
+| Artifact class | Producer | Reviewer (independent) | What is checked |
+|----------------|----------|------------------------|-----------------|
+| Scope challenge + strategy/problem | host pm-intake | peer agent | keep/cut honesty, owners, non-goals, weak evidence flags |
+| PRD + design-spec + plan/spec | host pm-intake (or design) | peer agent | test seams, metrics, assumptions, kill criteria, actionability |
+| design plan/spec | design host | design peer (already required) | code-grounded divergence |
+| implementation | dev host | peer per story (already required) | spec compliance + quality |
+| e2e / review / qa reports | phase host | optional second pass on full; required if verdict success with thin evidence | evidence vs claim |
+
+Rules:
+
+1. Reviewer must **not** be the same session that wrote the artifact when a peer is available (`runtime-resolution.md`).
+2. Review covers **inputs** (idea, claims, data sources) and **outputs** (docs, specs, metrics).
+3. Peer findings write to `control/peer-review.md` (or phase-local peer file). Host must respond: accept / reject+reason / change artifact.
+4. `DONE` without peer response on full-scope pm-intake handoff is invalid when peer dispatch is available.
+5. If peer is unavailable, self-produce a second pass and mark `WARNING: peer self-generated` (same bar as design).
+
+### Minimum peer checklist for product handoff
+
+- [ ] Scope: something was cut or deferred, or explicit why not
+- [ ] Each must-ship has an owner
+- [ ] Success metrics are measurable
+- [ ] Assumptions are falsifiable
+- [ ] Kill criteria are concrete
+- [ ] Claims cite evidence or are labeled assumption
+- [ ] Engineering can implement without guessing product intent
 
 ## Quality Dimensions
 

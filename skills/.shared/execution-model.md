@@ -68,6 +68,23 @@ Forbidden by default:
 - "Parallel design + implement" as default for product features.
 - Fan-out without a merge/verify step.
 
+## Multi-agent cross-review (always-on for quality)
+
+Independent agents must challenge **inputs** and **outputs**, not only code.
+
+| Level | Who | What |
+|-------|-----|------|
+| Product handoff (full) | peer reviews pm-intake artifacts | scope, PRD, metrics, assumptions, kill criteria, evidence labels |
+| Design | host ∥ peer (existing) | specs diverge against code |
+| Dev | peer per story (existing) | implementer ≠ reviewer |
+| Verify | e2e ∥ review (orchestrator parallel) | different write-sets, both must pass |
+
+Rules:
+
+1. Same agent must not be the only judge of its own full-scope product handoff when a peer can be dispatched.
+2. Peer writes findings; producer must answer before DONE.
+3. See `product-lifecycle-21.md` section **Multi-agent cross-review** for product-specific checklist.
+
 ## Layer 3 - Failure loops (retry, do not lie)
 
 | Failure | Loop |

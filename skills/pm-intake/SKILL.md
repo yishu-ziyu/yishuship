@@ -50,6 +50,14 @@ Also read the relevant upstream Matt skills before executing their lane:
   `control/matt-upstream.md` listing each required Matt `SKILL.md` path you
   actually opened this run (at least grill-with-docs, grilling, domain-modeling,
   and to-spec when producing PRD/spec). Empty list = incomplete phase.
+- **Checkpoints are a spiral map.** pre_cycle / in_cycle / post_cycle timing is
+  defined in `product-lifecycle-21.md`. Do not pretend all 21 are finished before
+  code; do not skip post_cycle learning when the user asks for a full lifecycle.
+- **Peer cross-review of product inputs and outputs** (full scope): after draft
+  handoff artifacts exist, dispatch an independent peer to review scope + PRD +
+  design-spec against the checklist in `product-lifecycle-21.md`. Write findings
+  to `control/peer-review.md` and resolve them before DONE. If peer unavailable,
+  self-second-pass with `WARNING: peer self-generated`.
 
 ## Step 0: Initialize
 
@@ -94,7 +102,8 @@ Create TodoWrite items:
 7. Product specification and test seams
 8. Technical and project plan
 9. Engineering handoff
-10. Optional growth loop
+10. Peer cross-review of handoff (inputs + outputs)
+11. Optional growth loop
 
 ## Scope Challenge Gate (before thick strategy/PRD)
 
@@ -389,9 +398,11 @@ Update state to `phase: complete` when handoff is ready.
 ## Completion Gate
 
 Done means the V2 product handoff is complete in the same `$TASK_DIR`: all
-required checkpoints are marked in `control/lifecycle-checklist.yaml`, required
-product files exist under `product/` (including `00b-scope-challenge.md` unless
-N/A with reason), `control/matt-upstream.md` lists Matt paths actually opened,
+required checkpoints are marked in `control/lifecycle-checklist.yaml` (with
+when: pre_cycle/in_cycle/post_cycle when known), required product files exist
+under `product/` (including `00b-scope-challenge.md` unless N/A with reason),
+`control/matt-upstream.md` lists Matt paths actually opened,
+`control/peer-review.md` exists for full scope (or lite waiver with reason),
 `delivery/design-spec.md` bridges product to engineering, and `plan/spec.md`
 contains engineering-facing acceptance criteria. If any required checkpoint is
 unknown, mark the phase `BLOCKED` rather than inventing certainty.
