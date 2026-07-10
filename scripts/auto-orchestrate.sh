@@ -47,6 +47,66 @@ emit_dispatch() {
   emit "MESSAGE" "$message"
 }
 
+# Layer-2 orchestrator parallel: after dev, e2e ∥ review (no shared write-set).
+# Host must run both dispatches (or remaining), then complete each phase.
+emit_dispatch_parallel_verify() {
+  local e2e_pf="$1" review_pf="$2" message="$3"
+  emit "ACTION" "dispatch_parallel"
+  emit "PHASE" "verify_parallel"
+  emit "PARALLEL" "e2e,review"
+  emit "PROMPT_FILE_e2e" "$e2e_pf"
+  emit "PROMPT_FILE_review" "$review_pf"
+  emit "MESSAGE" "$message"
+}
+
+emit_await_parallel() {
+  local pending="$1" message="$2"
+  emit "ACTION" "await_parallel"
+  emit "PHASE" "verify_parallel"
+  emit "PENDING" "$pending"
+  emit "MESSAGE" "$message"
+}
+
+# Join e2e∥review when both marked done → qa.
+try_join_verify_parallel() {
+  local task_id e2e_st rev_st
+  task_id=$(state_get "task_id")
+  e2e_st=$(state_get "parallel_e2e")
+  rev_st=$(state_get "parallel_review")
+
+  if [ "$e2e_st" = "done" ] && [ "$rev_st" = "done" ]; then
+    state_set "parallel_mode" "none"
+    state_set "phase" "qa"
+    write_run_state "$task_id" "qa" "running"
+    local pf
+    pf=$(generate_prompt "qa")
+    emit_dispatch "qa" "$pf" "[Auto] Parallel verify complete (e2e∥review). Starting QA..."
+    return 0
+  fi
+
+  if [ "$e2e_st" = "done" ] && [ "$rev_st" = "pending" ]; then
+    emit_await_parallel "review" "[Auto] E2E done. Still waiting for review complete (parallel join)."
+    return 0
+  fi
+
+  if [ "$rev_st" = "done" ] && [ "$e2e_st" = "pending" ]; then
+    emit_await_parallel "e2e" "[Auto] Review done. Still waiting for e2e complete (parallel join)."
+    return 0
+  fi
+
+  # Neither finished joining yet unexpectedly — re-emit both.
+  local e2e_pf rev_pf
+  e2e_pf=$(generate_prompt "e2e")
+  rev_pf=$(generate_prompt "review")
+  emit_dispatch_parallel_verify "$e2e_pf" "$rev_pf" \
+    "[Auto] Re-dispatching parallel verify (e2e∥review)..."
+}
+
+exit_parallel_verify() {
+  state_set "parallel_mode" "none"
+  # Leave parallel_* stamps for debugging; none means not in join.
+}
+
 emit_done() {
   # Archive the state file so init can start a fresh task.
   if [ -f "$STATE_FILE" ]; then
@@ -600,6 +660,9 @@ review_fix_round: 0
 qa_fix_round: 0
 e2e_fix_round: 0
 post_qa_fix: false
+parallel_mode: none
+parallel_e2e: none
+parallel_review: none
 started_at: "$started_at"
 ---
 
@@ -647,6 +710,42 @@ cmd_resume() {
   local extra_args=""
 
   case "$phase" in
+    verify_parallel)
+      # Resume mid parallel join: re-dispatch whatever is still pending.
+      local e2e_st rev_st e2e_pf rev_pf
+      e2e_st=$(state_get "parallel_e2e")
+      rev_st=$(state_get "parallel_review")
+      if [ "$e2e_st" = "done" ] && [ "$rev_st" = "done" ]; then
+        try_join_verify_parallel
+        return 0
+      fi
+      if [ "$e2e_st" = "pending" ] && [ "$rev_st" = "pending" ]; then
+        e2e_pf=$(generate_prompt "e2e")
+        rev_pf=$(generate_prompt "review")
+        emit_dispatch_parallel_verify "$e2e_pf" "$rev_pf" \
+          "[Auto] Resuming parallel verify: e2e ∥ review..."
+        return 0
+      fi
+      if [ "$e2e_st" = "pending" ]; then
+        e2e_pf=$(generate_prompt "e2e")
+        emit_dispatch "e2e" "$e2e_pf" "[Auto] Resuming pending e2e (parallel join)..."
+        return 0
+      fi
+      if [ "$rev_st" = "pending" ]; then
+        rev_pf=$(generate_prompt "review")
+        emit_dispatch "review" "$rev_pf" "[Auto] Resuming pending review (parallel join)..."
+        return 0
+      fi
+      # Recover unknown stamps by full re-dispatch.
+      state_set "parallel_mode" "verify"
+      state_set "parallel_e2e" "pending"
+      state_set "parallel_review" "pending"
+      e2e_pf=$(generate_prompt "e2e")
+      rev_pf=$(generate_prompt "review")
+      emit_dispatch_parallel_verify "$e2e_pf" "$rev_pf" \
+        "[Auto] Recovering parallel verify: e2e ∥ review..."
+      return 0
+      ;;
     review_fix)
       dispatch_phase="review_fix"
       local task_dir=".ship/tasks/$task_id"
@@ -751,20 +850,39 @@ cmd_complete() {
     design:fail|design:blocked) retry_or_escalate "design" "$summary" ;;
 
     dev:success)
-      state_set "phase" "e2e"
-      write_run_state "$task_id" "e2e" "running"
-      local pf; pf=$(generate_prompt "e2e")
-      emit_dispatch "e2e" "$pf" "[Auto] Dev complete. Writing E2E tests..."
+      # Layer-2: e2e and review only need code — run in parallel, join before qa.
+      state_set "parallel_mode" "verify"
+      state_set "parallel_e2e" "pending"
+      state_set "parallel_review" "pending"
+      state_set "phase" "verify_parallel"
+      write_run_state "$task_id" "verify_parallel" "running"
+      local e2e_pf rev_pf
+      e2e_pf=$(generate_prompt "e2e")
+      rev_pf=$(generate_prompt "review")
+      emit_dispatch_parallel_verify "$e2e_pf" "$rev_pf" \
+        "[Auto] Dev complete. Parallel verify: e2e ∥ review (join before QA)..."
       ;;
     dev:fail|dev:blocked) retry_or_escalate "dev" "$summary" ;;
 
     review:success)
-      state_set "phase" "qa"
-      write_run_state "$task_id" "qa" "running"
-      local pf; pf=$(generate_prompt "qa")
-      emit_dispatch "qa" "$pf" "[Auto] Review clean. Starting QA..."
+      if [ "$(state_get "parallel_mode")" = "verify" ]; then
+        state_set "parallel_review" "done"
+        write_run_state "$task_id" "verify_parallel" "running"
+        try_join_verify_parallel
+      else
+        state_set "phase" "qa"
+        write_run_state "$task_id" "qa" "running"
+        local pf; pf=$(generate_prompt "qa")
+        emit_dispatch "qa" "$pf" "[Auto] Review clean. Starting QA..."
+      fi
       ;;
     review:findings)
+      # Exit parallel join — code may change on fix; re-verify serially afterward.
+      if [ "$(state_get "parallel_mode")" = "verify" ]; then
+        exit_parallel_verify
+        state_set "parallel_e2e" "none"
+        state_set "parallel_review" "none"
+      fi
       local round; round=$(state_get "review_fix_round")
       if [ "${round:-0}" -ge "$MAX_RETRIES" ]; then
         emit_retry_exhausted_escalation "Review fix exhausted after $MAX_RETRIES rounds. $summary"
@@ -783,7 +901,14 @@ cmd_complete() {
         fi
       fi
       ;;
-    review:fail|review:blocked) retry_or_escalate "review" "$summary" ;;
+    review:fail|review:blocked)
+      if [ "$(state_get "parallel_mode")" = "verify" ]; then
+        exit_parallel_verify
+        state_set "parallel_e2e" "none"
+        state_set "parallel_review" "none"
+      fi
+      retry_or_escalate "review" "$summary"
+      ;;
 
     dev_fix:success|review_fix:success)
       state_set "phase" "review"
@@ -863,8 +988,12 @@ cmd_complete() {
         write_run_state "$task_id" "qa" "running"
         local pf; pf=$(generate_prompt "qa-recheck")
         emit_dispatch "qa" "$pf" "[Auto] E2E regression gate passed. Re-running QA..."
+      elif [ "$(state_get "parallel_mode")" = "verify" ]; then
+        state_set "parallel_e2e" "done"
+        write_run_state "$task_id" "verify_parallel" "running"
+        try_join_verify_parallel
       else
-        # Normal forward flow: fresh e2e after dev → review.
+        # Serial fallback: e2e then review (e.g. after parallel aborted).
         state_set "phase" "review"
         write_run_state "$task_id" "review" "running"
         local pf; pf=$(generate_prompt "review")
@@ -872,6 +1001,11 @@ cmd_complete() {
       fi
       ;;
     e2e:fail)
+      if [ "$(state_get "parallel_mode")" = "verify" ]; then
+        exit_parallel_verify
+        state_set "parallel_e2e" "none"
+        state_set "parallel_review" "none"
+      fi
       local round; round=$(state_get "e2e_fix_round")
       if [ "${round:-0}" -ge "$MAX_RETRIES" ]; then
         emit_retry_exhausted_escalation "E2E fix exhausted after $MAX_RETRIES rounds. $summary"
@@ -885,7 +1019,14 @@ cmd_complete() {
         emit_dispatch "e2e_fix" "$pf" "[Auto] E2E failed (round $((round + 1))/$MAX_RETRIES). Fixing..."
       fi
       ;;
-    e2e:blocked) retry_or_escalate "e2e" "$summary" ;;
+    e2e:blocked)
+      if [ "$(state_get "parallel_mode")" = "verify" ]; then
+        exit_parallel_verify
+        state_set "parallel_e2e" "none"
+        state_set "parallel_review" "none"
+      fi
+      retry_or_escalate "e2e" "$summary"
+      ;;
 
     e2e_fix:success)
       state_set "phase" "e2e"

@@ -52,7 +52,7 @@ X-side signal (paraphrase, not gospel):
 | 1 | yishuship 是什么 / 不是什么 | closed | 可插拔交付 runtime；五件套形态 |
 | 1b | 仓库 / SkillOpt 定位 | closed | 新仓 yishuship；SkillOpt 非运行时 |
 | 2 | 内部上下游（谁先谁后） | closed | 依赖顺序非死串行 |
-| 3 | 进态 Activation + State Sense | pending | |
+| 3 | 进态 Activation + State Sense | **current** | |
 | 4 | 产品层 pm-intake 骨架 | pending | |
 | 5 | 产品层 21 checkpoints 怎么用 | pending | |
 | 6 | 工程 design 对抗式 | pending | |
@@ -183,6 +183,9 @@ Rejected alternatives: multi-plugin (UX/state split), pure prompts (no teeth), p
 **Pressure note:** Without indexing the original X→Git trail the user used at build time, "溯源" is theater. Next: user points to bookmark list / notes path, or we harvest from chat history later.
 
 ## Code already landed (context)
+
+| auto parallel verify | dev → e2e∥review join → qa (`dispatch_parallel`) |
+
 
 | DEC-0007 execution-model | serial deps + intra parallel + fail loops |
 

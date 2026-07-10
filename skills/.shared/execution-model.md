@@ -17,8 +17,11 @@ Layer 3  Failure              loop back, do not fake forward
 Default auto spine (dependency order, not mandatory full run):
 
 ```text
-pm_intake → design → dev → e2e → review → qa → [refactor] → handoff
+pm_intake → design → dev → (e2e ∥ review) → qa → [refactor] → handoff
 ```
+
+After **dev**, auto may run **e2e and review in parallel** (same upstream: code
+exists; different write-sets). QA waits until **both** succeed (join).
 
 | Downstream | Upstream required (minimum idea) |
 |------------|-----------------------------------|
@@ -57,7 +60,7 @@ Parallel only when **all** hold:
 | dev | stories in the same wave in parallel if file DAG allows |
 | review | Standards axis and Spec axis may be split across peers; host merges |
 | research (Matt) | background primary-source dig while host continues alignment |
-| auto | one phase at a time at orchestrator level; parallelism stays inside the phase skill |
+| auto | orchestrator may fan-out **e2e ∥ review** after dev (`dispatch_parallel`); other stages stay serial; design/dev keep internal peer/wave parallel |
 
 Forbidden by default:
 

@@ -1088,8 +1088,50 @@ class TestCrossSessionResume(unittest.TestCase):
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
         fields = self._parse_kv_output(proc.stdout)
+        # After dev: Layer-2 parallel verify (e2e ∥ review), not serial e2e-only.
+        self.assertEqual(fields["ACTION"], "dispatch_parallel")
+        self.assertEqual(fields["PHASE"], "verify_parallel")
+        self.assertIn("e2e", fields.get("PARALLEL", ""))
+        self.assertIn("review", fields.get("PARALLEL", ""))
+        self.assertTrue(fields.get("PROMPT_FILE_e2e"))
+        self.assertTrue(fields.get("PROMPT_FILE_review"))
+
+    def test_parallel_verify_join_to_qa(self):
+        """e2e and review complete in either order → join → qa."""
+        task_id = self._init_task("parallel verify join")
+        self._complete_dev(task_id)
+        Path(self.repo, "feature.txt").write_text("implemented\n")
+        subprocess.run(["git", "add", "feature.txt"], cwd=self.repo, check=True)
+        subprocess.run(["git", "commit", "-q", "-m", "implement feature"], cwd=self.repo, check=True)
+        subprocess.run(
+            ["bash", ORCH_SCRIPT, "complete", "dev", "--verdict=success"],
+            capture_output=True, text=True, cwd=self.repo, check=True,
+        )
+
+        task_dir = Path(self.repo) / ".ship" / "tasks" / task_id
+        (task_dir / "e2e").mkdir(parents=True, exist_ok=True)
+        (task_dir / "e2e" / "report.md").write_text("# e2e ok\n")
+        (task_dir / "review.md").write_text("# Review\n\nNo P1/P2 issues.\n")
+
+        # Complete e2e first → await review
+        proc = subprocess.run(
+            ["bash", ORCH_SCRIPT, "complete", "e2e", "--verdict=success"],
+            capture_output=True, text=True, cwd=self.repo,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+        fields = self._parse_kv_output(proc.stdout)
+        self.assertEqual(fields["ACTION"], "await_parallel")
+        self.assertEqual(fields.get("PENDING"), "review")
+
+        # Complete review → join to qa
+        proc = subprocess.run(
+            ["bash", ORCH_SCRIPT, "complete", "review", "--verdict=success"],
+            capture_output=True, text=True, cwd=self.repo,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+        fields = self._parse_kv_output(proc.stdout)
         self.assertEqual(fields["ACTION"], "dispatch")
-        self.assertEqual(fields["PHASE"], "e2e")
+        self.assertEqual(fields["PHASE"], "qa")
 
     # ── tests ──────────────────────────────────────────────────
 

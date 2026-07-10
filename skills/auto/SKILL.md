@@ -52,8 +52,17 @@ else
 fi
 ```
 
-3. Read `PROMPT_FILE`, dispatch the agent with that prompt, classify the report card, and call `complete <PHASE>`.
-4. Repeat until the orchestrator emits `ACTION:done` or `ACTION:escalate`.
+3. Read orchestrator output and act on `ACTION`:
+   - `dispatch` — run one phase from `PROMPT_FILE`, then `complete <PHASE>`.
+   - `dispatch_parallel` — after dev, run **e2e ∥ review** from
+     `PROMPT_FILE_e2e` and `PROMPT_FILE_review` (two agents or sequential
+     back-to-back if host cannot parallelize). Complete **each** phase with
+     `complete e2e` / `complete review` when that side finishes.
+   - `await_parallel` — one side of the join finished; still run/complete
+     `PENDING` (e2e or review). Do not start QA until join succeeds.
+   - `done` / `escalate` — stop.
+4. Classify each phase report card and call `complete <PHASE> --verdict=...`.
+5. Repeat until the orchestrator emits `ACTION:done` or `ACTION:escalate`.
 
 ## Product Lifecycle Gate
 
