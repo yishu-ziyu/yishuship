@@ -319,14 +319,25 @@ class TestMarkerTampering(unittest.TestCase):
         pm_state = Path(self.repo) / ".ship" / "pm-state.yaml"
         pm_state.write_text("phase: intake\ntask_id: test-task\n")
 
-        # Create all required V2 artifacts
-        for f in ["00-product-type.json", "01-strategy.md", "03-problem-solution.md",
-                   "08-prd.md", "09-tech-project-plan.md"]:
-            (task_dir / "product" / f).parent.mkdir(parents=True, exist_ok=True)
-            (task_dir / "product" / f).write_text("content\n")
-        (task_dir / "delivery" / "design-spec.md").parent.mkdir(parents=True, exist_ok=True)
+        # Create minimum V2 handoff (gate-aligned)
+        product = task_dir / "product"
+        product.mkdir(parents=True, exist_ok=True)
+        (product / "00-product-type.json").write_text('{"product_type":"C"}\n')
+        (product / "00b-scope-challenge.md").write_text(
+            "# Scope\n\n## Must-ship\n- x\n\n## Keep / Cut / Defer\n| a | o | Keep | r |\n"
+        )
+        for f in ["01-strategy.md", "03-problem-solution.md", "09-tech-project-plan.md"]:
+            (product / f).write_text("content\n")
+        (product / "08-prd.md").write_text(
+            "## Success Metrics\nm\n## Assumptions\na\n## Kill Criteria\nk\n## Acceptance Criteria\nmust\n"
+        )
+        (task_dir / "control").mkdir(parents=True, exist_ok=True)
+        (task_dir / "control" / "matt-upstream.md").write_text(
+            "- vendor/mattpocock-skills/skills/engineering/to-spec/SKILL.md\n"
+        )
+        (task_dir / "delivery").mkdir(parents=True, exist_ok=True)
         (task_dir / "delivery" / "design-spec.md").write_text("content\n")
-        (task_dir / "plan" / "spec.md").parent.mkdir(parents=True, exist_ok=True)
+        (task_dir / "plan").mkdir(parents=True, exist_ok=True)
         (task_dir / "plan" / "spec.md").write_text("content\n")
 
         stdout, stderr, rc = run_hook(
