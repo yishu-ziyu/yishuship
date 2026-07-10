@@ -34,6 +34,10 @@ Also read the relevant upstream Matt skills before executing their lane:
 
 - Keep `/yishuship:pm-intake` as the command name.
 - Do not send an idea directly to code.
+- **Challenge scope before thickening docs.** Before strategy/PRD, write
+  `product/00b-scope-challenge.md` (or the Scope Challenge section in strategy):
+  which requirements must exist, who owns each, what is deleted or deferred, and
+  why. Do not optimize or specify features that fail this cut.
 - Product type must be decided before strategy, research, PRD, or technical planning.
 - Misalignment is a product bug. If intent, domain language, or a decision branch is unresolved, ask the next blocking question before writing engineering handoff.
 - Treat the 21 items as checkpoints, not as 21 mandatory phases.
@@ -42,6 +46,10 @@ Also read the relevant upstream Matt skills before executing their lane:
 - Mark each checkpoint as `required`, `optional`, or `N/A` with a reason.
 - Growth artifacts are optional unless the user explicitly asks for launch, operation, data review, or next-iteration work.
 - If the task is a tiny bug fix with no product decision, route to `/yishuship:review` or `/yishuship:dev` instead of forcing lifecycle intake.
+- **Matt upstream is mandatory, not decorative.** Before DONE, write
+  `control/matt-upstream.md` listing each required Matt `SKILL.md` path you
+  actually opened this run (at least grill-with-docs, grilling, domain-modeling,
+  and to-spec when producing PRD/spec). Empty list = incomplete phase.
 
 ## Step 0: Initialize
 
@@ -78,14 +86,42 @@ exists. Preserve `$TASK_DIR/input/requirement.md` when it was created by
 Create TodoWrite items:
 
 1. Product type
-2. Alignment and shared language
-3. Strategy and market
-4. Research and current state
-5. Problem and solution
-6. Product specification and test seams
-7. Technical and project plan
-8. Engineering handoff
-9. Optional growth loop
+2. Scope challenge (keep / cut / defer + owners)
+3. Alignment and shared language
+4. Strategy and market
+5. Research and current state
+6. Problem and solution
+7. Product specification and test seams
+8. Technical and project plan
+9. Engineering handoff
+10. Optional growth loop
+
+## Scope Challenge Gate (before thick strategy/PRD)
+
+After product type (or in parallel with it when type is obvious), write
+`$TASK_DIR/product/00b-scope-challenge.md`:
+
+```markdown
+## Candidate requirements
+| Requirement | Owner (who asked) | Keep / Cut / Defer | Reason |
+
+## Deleted or deferred
+- ...
+
+## Must-ship this cycle
+- ...
+
+## Explicit non-goals
+- ...
+```
+
+Rules:
+
+- Every "must" line has an owner (person or role), not "the business" or "everyone".
+- Prefer cutting before specifying. If nothing was cut or deferred, say why the
+  scope is already minimal.
+- Strategy, blueprint, and PRD must not reintroduce cut items without updating
+  this file.
 
 ## Alignment and Shared Language Gate
 
@@ -337,10 +373,11 @@ Update state to `phase: complete` when handoff is ready.
 
 Done means the V2 product handoff is complete in the same `$TASK_DIR`: all
 required checkpoints are marked in `control/lifecycle-checklist.yaml`, required
-product files exist under `product/`, `delivery/design-spec.md` bridges product
-to engineering, and `plan/spec.md` contains engineering-facing acceptance
-criteria. If any required checkpoint is unknown, mark the phase `BLOCKED` rather
-than inventing certainty.
+product files exist under `product/` (including `00b-scope-challenge.md` unless
+N/A with reason), `control/matt-upstream.md` lists Matt paths actually opened,
+`delivery/design-spec.md` bridges product to engineering, and `plan/spec.md`
+contains engineering-facing acceptance criteria. If any required checkpoint is
+unknown, mark the phase `BLOCKED` rather than inventing certainty.
 
 ## [PM Intake] Report Card
 
@@ -348,6 +385,8 @@ than inventing certainty.
 |-------|-------|
 | Status | <DONE / BLOCKED> |
 | Product type | <C / B / hybrid> |
+| Scope challenge | <path or N/A + reason> |
+| Matt upstream read | <paths from control/matt-upstream.md> |
 | Required checkpoints complete | <N>/<N> |
 | Optional checkpoints skipped | <checkpoint + reason> |
 | Main evidence | <sources, examples, or assumptions> |

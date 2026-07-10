@@ -21,9 +21,17 @@ and say so once.
 
 ## Runtime Activation
 
-When a yishuship phase maps to a Matt skill, the phase must read the upstream
-`SKILL.md` before executing that part of the workflow. This is the difference
-between "inspired by Matt" and "using Matt".
+When a yishuship phase maps to a Matt skill, the phase must **open and read**
+the upstream `SKILL.md` before executing that part of the workflow. Listing a
+path in this file is not enough; the agent must actually load the file.
+
+Proof of use (required for DONE on phases that declare Matt deps):
+
+1. Open each required path with the Read tool (or equivalent).
+2. Record paths in the phase report card field `Matt upstream read`.
+3. For `pm-intake`, also write `control/matt-upstream.md` in the task dir.
+
+This is the difference between "inspired by Matt" and "using Matt".
 
 Use these runtime activations:
 

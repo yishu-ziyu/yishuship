@@ -12,6 +12,7 @@ This format is consistent across all skills so users always know where to look.
 |-------|-------|
 | Status | <DONE / DONE_WITH_CONCERNS / FINDINGS / BLOCKED / SKIP> |
 | Summary | <one-line description of what happened> |
+| Matt upstream read | <comma-separated vendor paths opened this phase, or none + why> |
 
 ### Metrics
 | Metric | Value |
@@ -23,6 +24,10 @@ This format is consistent across all skills so users always know where to look.
 |------|---------|
 | <path> | <what it is> |
 ```
+
+When the phase skill lists required Matt `SKILL.md` paths, **Matt upstream read**
+must not be empty on DONE. Writing the path without opening the file is a
+contract violation.
 
 Always include Next Steps — the orchestrator reads the report card the same
 way a human does. No separate auto/standalone output formats.

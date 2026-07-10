@@ -6,6 +6,8 @@ This shared reference is the canonical source for yishuship's product lifecycle.
 
 Do not turn 21 product processes into 21 mandatory phases. Use a small number of phases to move work forward, and use checkpoints to prevent product thinking from being skipped.
 
+**Scope before volume:** challenge which requirements must exist (owner, keep/cut/defer) before expanding strategy, blueprint, and PRD. Specifying a feature that should have been cut is a product bug.
+
 ```text
 Idea
 → Product Type
