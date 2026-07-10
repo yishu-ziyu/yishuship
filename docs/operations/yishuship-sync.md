@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Use this when Claude Code may be behind the latest `https://github.com/yishu-ziyu/ship.git` yishuship repository.
+Use this when Claude Code may be behind the latest `https://github.com/yishu-ziyu/yishuship.git` yishuship repository.
 
 It checks the local yishuship checkout, Claude Code plugin cache, and visible `/yishuship:*` skills together.
 
@@ -48,7 +48,7 @@ Decide manually whether to commit, stash, or keep working without pulling.
 | Surface | Path |
 |---------|------|
 | Source repo | `/Users/mahaoxuan/Developer/yishuship` |
-| Remote repo | `https://github.com/yishu-ziyu/ship.git` |
+| Remote repo | `https://github.com/yishu-ziyu/yishuship.git` |
 | Plugin ID | `yishuship@yishuship` |
 | Plugin cache | `~/.claude/plugins/cache/yishuship/yishuship/0.1.0` |
 | Skill links | `~/.claude/skills/yishuship:*` |
