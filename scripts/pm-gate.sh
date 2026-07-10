@@ -41,6 +41,20 @@ has_product_type_artifact() {
   [ -f "$PRODUCT_DIR/00-product-type.json" ] || [ -f "$PRODUCT_DIR/00-product-type.yaml" ]
 }
 
+# Full suite signal: auto scope_mode full/refactor, or research pack present.
+is_full_product_suite() {
+  if [ -f "$CWD/.ship/ship-auto.local.md" ]; then
+    if grep -Eq '^scope_mode:[[:space:]]*(full|refactor)[[:space:]]*$' "$CWD/.ship/ship-auto.local.md" 2>/dev/null; then
+      return 0
+    fi
+    if grep -Eq '^scope_mode:[[:space:]]*lite[[:space:]]*$' "$CWD/.ship/ship-auto.local.md" 2>/dev/null; then
+      return 1
+    fi
+  fi
+  # Standalone / no auto state: presence of full-suite research file implies full.
+  [ -s "$PRODUCT_DIR/02-research.md" ]
+}
+
 has_v2_product_handoff() {
   # Align with Engineering Gate minimum (lite-capable handoff).
   has_product_type_artifact && \
@@ -51,7 +65,13 @@ has_v2_product_handoff() {
   [ -f "$PRODUCT_DIR/09-tech-project-plan.md" ] && \
   [ -s "$TASK_DIR/control/matt-upstream.md" ] && \
   [ -f "$DELIVERY_DIR/design-spec.md" ] && \
-  [ -f "$TASK_DIR/plan/spec.md" ]
+  [ -f "$TASK_DIR/plan/spec.md" ] || return 1
+
+  # Full suite must also have peer cross-review of product inputs/outputs.
+  if is_full_product_suite; then
+    [ -s "$TASK_DIR/control/peer-review.md" ] || return 1
+  fi
+  return 0
 }
 
 has_legacy_discovery() {
@@ -73,7 +93,7 @@ block() {
 # ── Rule 1: Design requires product type (V2) or discovery (V1) ──────────────
 if echo "$AGENT_PROMPT" | grep -q "yishuship:design\|yishuship:auto"; then
   if ! has_v2_product_handoff && ! has_legacy_discovery; then
-    block "[yishuship PM gate] /yishuship:design or /yishuship:auto needs minimum V2 handoff: product/00, 00b-scope-challenge, 01, 03, 08 (with Success Metrics/Assumptions/Kill Criteria), 09, control/matt-upstream.md, delivery/design-spec.md, plan/spec.md. Old tasks can pass with pm/01-discovery.md."
+    block "[yishuship PM gate] /yishuship:design or /yishuship:auto needs V2 handoff: product/00, 00b-scope-challenge, 01, 03, 08 (Success Metrics/Assumptions/Kill Criteria), 09, control/matt-upstream.md, delivery/design-spec.md, plan/spec.md. Full suite also requires control/peer-review.md (host disposition). Old tasks can pass with pm/01-discovery.md."
     exit 0
   fi
 fi

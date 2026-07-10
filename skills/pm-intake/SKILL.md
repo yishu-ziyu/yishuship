@@ -342,8 +342,8 @@ cannot catch the important behavior.
 
 | Mode | When | Required product files |
 |------|------|------------------------|
-| `lite` | fix/bug/patch/small… | minimum handoff: 00, 00b, 01, 03, 08, 09 + design-spec + plan/spec + matt-upstream + checklist |
-| `full` / `refactor` | default new feature / product | full suite: also 02, 04, 05, 06, 07 |
+| `lite` | fix/bug/patch/small… | minimum handoff: 00, 00b, 01, 03, 08, 09 + design-spec + plan/spec + matt-upstream + checklist (peer-review optional) |
+| `full` / `refactor` | default new feature / product | full suite: also 02, 04, 05, 06, 07 + **control/peer-review.md** (required; auto + pm-gate enforce) |
 
 Update state to `phase: tech-project-plan`.
 
@@ -393,7 +393,23 @@ Required sections:
 
 For compatibility, also write or update `plan/spec.md` with the same engineering-facing acceptance criteria when the next phase is `/yishuship:design` or `/yishuship:auto`.
 
-Update state to `phase: complete` when handoff is ready.
+## Step 7b: Peer cross-review (full / refactor; optional on lite)
+
+Before marking complete on **full** or **refactor** scope (auto `scope_mode`, or
+standalone handoff that includes `02-research` / full suite files):
+
+1. Dispatch an independent peer (or self-second-pass with
+   `WARNING: peer self-generated` if no peer runtime).
+2. Peer reviews product **inputs** (idea, claims, sources) and **outputs**
+   (scope, PRD, design-spec, plan/spec) against the checklist in
+   `product-lifecycle-21.md`.
+3. Write `$TASK_DIR/control/peer-review.md` with findings (or explicit clean
+   pass) **and** host disposition (`accept` / `reject+reason` / resolved).
+
+Auto `complete pm_intake` and `pm-gate.sh` both require this file on full suite.
+Lite may omit it, or record a one-line waiver.
+
+Update state to `phase: complete` when handoff (and peer-review if required) is ready.
 
 ## Completion Gate
 
@@ -415,6 +431,7 @@ unknown, mark the phase `BLOCKED` rather than inventing certainty.
 | Product type | <C / B / hybrid> |
 | Scope challenge | <path or N/A + reason> |
 | Matt upstream read | <paths from control/matt-upstream.md> |
+| Peer review | <path or lite-waived> |
 | Required checkpoints complete | <N>/<N> |
 | Optional checkpoints skipped | <checkpoint + reason> |
 | Main evidence | <sources, examples, or assumptions> |

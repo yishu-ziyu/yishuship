@@ -29,6 +29,9 @@ Canonical text: `skills/.shared/product-lifecycle-21.md`
 
 - Checklist may record `when` per checkpoint.
 - full pm-intake DONE requires `control/peer-review.md` resolution.
+- Enforced by: `auto-orchestrate.sh` `require_peer_review_log` inside
+  `validate_pm_full_suite` (scope_mode full/refactor only);
+  `pm-gate.sh` `is_full_product_suite` + non-empty `control/peer-review.md`.
 - growth/learn should name next-cycle checkpoint re-opens.
 
 ## Non-goals

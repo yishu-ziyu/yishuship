@@ -70,6 +70,18 @@ The orchestrator starts with `pm_intake`, reuses the same `task_id`, and validat
 the V2 product lifecycle artifacts before dispatching design. PM Gate remains a
 second safety net for direct engineering skill invocations.
 
+Validation matches `scope_mode` (see `../.shared/product-lifecycle-21.md`
+Engineering Gate):
+
+| `scope_mode` | Orchestrator check on `pm_intake:success` |
+|--------------|------------------------------------------|
+| `lite` | `validate_pm_minimum` only (peer-review optional) |
+| `full` / `refactor` | minimum + full product suite + **`control/peer-review.md`** (findings or clean pass + host disposition) |
+
+Do not mark pm_intake success without those artifacts. `pm-gate.sh` enforces the
+same full-suite peer-review requirement when `scope_mode` is full/refactor or
+when `product/02-research.md` is present.
+
 ## Completion Gate
 
 Done means the orchestrator has written or preserved `.ship/tasks/<task_id>/`

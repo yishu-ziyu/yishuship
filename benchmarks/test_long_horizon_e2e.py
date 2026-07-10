@@ -131,6 +131,8 @@ class TestPmGateBlocksAgentCalls(unittest.TestCase):
         (task_dir / "control" / "matt-upstream.md").write_text(
             "- vendor/mattpocock-skills/skills/engineering/to-spec/SKILL.md\n"
         )
+        # Minimum handoff tests are lite-shaped (no 02-research) so peer-review
+        # is not required by the gate.
         (task_dir / "delivery").mkdir(parents=True, exist_ok=True)
         (task_dir / "delivery" / "design-spec.md").write_text("content\n")
         (task_dir / "plan").mkdir(parents=True, exist_ok=True)
@@ -207,6 +209,40 @@ class TestPmGateBlocksAgentCalls(unittest.TestCase):
         )
         self.assertFalse(is_blocked(stdout),
                          f"Complete handoff should allow design, got: {stdout}")
+
+    def test_blocks_full_suite_handoff_without_peer_review(self):
+        """With 02-research present (full suite signal), peer-review.md is required."""
+        task_dir = self._setup_pm_state()
+        self._create_v2_handoff(task_dir)
+        (task_dir / "product" / "02-research.md").write_text("# Research\ncontent\n")
+        # No control/peer-review.md
+
+        stdout, stderr, rc = run_hook(
+            GATE_SCRIPT,
+            make_agent_call("design", self.repo),
+            self.repo
+        )
+        self.assertTrue(is_blocked(stdout),
+                        f"Full suite without peer-review should block, got: {stdout}")
+        self.assertIn("peer-review", stdout)
+
+    def test_allows_full_suite_handoff_with_peer_review(self):
+        """Full suite handoff with peer-review.md should allow design."""
+        task_dir = self._setup_pm_state()
+        self._create_v2_handoff(task_dir)
+        (task_dir / "product" / "02-research.md").write_text("# Research\ncontent\n")
+        (task_dir / "control" / "peer-review.md").write_text(
+            "# Peer review\n\n## Findings\n- clean pass\n\n"
+            "## Host response\n- disposition: accept\n"
+        )
+
+        stdout, stderr, rc = run_hook(
+            GATE_SCRIPT,
+            make_agent_call("design", self.repo),
+            self.repo
+        )
+        self.assertFalse(is_blocked(stdout),
+                         f"Full suite with peer-review should allow, got: {stdout}")
 
 
 # ── Test 2: pm-verify.sh phase completion detection ──────────
@@ -1066,6 +1102,12 @@ class TestCrossSessionResume(unittest.TestCase):
             "- vendor/mattpocock-skills/skills/engineering/to-spec/SKILL.md\n"
             "- vendor/mattpocock-skills/skills/engineering/domain-modeling/SKILL.md\n"
         )
+        if not lite:
+            (task_dir / "control" / "peer-review.md").write_text(
+                "# Peer review\n\n"
+                "## Findings\n- no blocking issues (clean pass)\n\n"
+                "## Host response\n- disposition: accept\n- resolved: yes\n"
+            )
         (task_dir / "plan").mkdir(parents=True, exist_ok=True)
         (task_dir / "plan" / "spec.md").write_text(
             "# Spec\n\n## Acceptance Criteria\n- The feature must work\n"
@@ -1226,6 +1268,50 @@ class TestCrossSessionResume(unittest.TestCase):
             out,
         )
         # Must not advance to design on failed validation
+        fields = self._parse_kv_output(proc.stdout)
+        self.assertNotEqual(fields.get("PHASE"), "design")
+
+    def test_pm_full_rejects_missing_peer_review(self):
+        """scope_mode=full requires control/peer-review.md with disposition."""
+        task_id = self._init_task("add billing feature")
+        content = (Path(self.repo) / ".ship" / "ship-auto.local.md").read_text()
+        self.assertIn("scope_mode: full", content)
+        task_dir = Path(self.repo) / ".ship" / "tasks" / task_id
+        # Full suite product files present, but no peer-review log.
+        self._write_pm_intake_artifacts(task_dir, lite=False)
+        peer = task_dir / "control" / "peer-review.md"
+        if peer.exists():
+            peer.unlink()
+        pm_state = Path(self.repo) / ".ship" / "pm-state.yaml"
+        pm_state.write_text(f"task_id: {task_id}\nphase: complete\n")
+        proc = subprocess.run(
+            ["bash", ORCH_SCRIPT, "complete", "pm_intake", "--verdict=success"],
+            capture_output=True, text=True, cwd=self.repo,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        out = proc.stdout + proc.stderr
+        self.assertTrue(
+            "peer-review" in out or "fail" in out.lower() or "Retrying" in out,
+            out,
+        )
+        fields = self._parse_kv_output(proc.stdout)
+        self.assertNotEqual(fields.get("PHASE"), "design")
+
+    def test_pm_full_rejects_peer_review_without_disposition(self):
+        """peer-review.md must include findings language and host disposition."""
+        task_id = self._init_task("add billing feature")
+        task_dir = Path(self.repo) / ".ship" / "tasks" / task_id
+        self._write_pm_intake_artifacts(task_dir, lite=False)
+        (task_dir / "control" / "peer-review.md").write_text(
+            "# Peer review\n\nLooks fine.\n"
+        )
+        pm_state = Path(self.repo) / ".ship" / "pm-state.yaml"
+        pm_state.write_text(f"task_id: {task_id}\nphase: complete\n")
+        proc = subprocess.run(
+            ["bash", ORCH_SCRIPT, "complete", "pm_intake", "--verdict=success"],
+            capture_output=True, text=True, cwd=self.repo,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
         fields = self._parse_kv_output(proc.stdout)
         self.assertNotEqual(fields.get("PHASE"), "design")
 

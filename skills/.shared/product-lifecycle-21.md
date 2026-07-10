@@ -62,6 +62,7 @@ Idea
     run_state.yaml
     lifecycle-checklist.yaml
     matt-upstream.md
+    peer-review.md
 ```
 
 ## Product Type Gate
@@ -253,11 +254,16 @@ Not a perfect 189 score. Must include:
 - `delivery/design-spec.md`
 - `plan/spec.md`
 
-### Full suite (`scope_mode: full` under auto)
+### Full suite (`scope_mode: full` or `refactor` under auto)
 
 Also require:
 
 - `02-research.md`, `04-product-blueprint.md`
 - `05-model-flow-role.md`, `06-experience-spec.md`, `07-data-permission-analytics.md`
+- `control/peer-review.md` (peer findings + host disposition on product inputs/outputs)
+
+`pm-gate.sh` and `auto-orchestrate.sh` validate the same sets: lite = minimum only;
+full/refactor = minimum + full suite files + peer-review. Do not diverge these lists
+without updating both scripts and this section together.
 
 Existing legacy tasks with `pm/01-discovery.md`, `pm/02-definition.md`, `pm/03-design.md`, and `pm/04-validation.md` remain valid through fallback checks.

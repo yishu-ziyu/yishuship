@@ -475,6 +475,18 @@ require_matt_upstream_log() {
     || { echo "control/matt-upstream.md must list opened Matt SKILL paths"; return 1; }
 }
 
+# Full-scope peer cross-review of product inputs/outputs (DEC-0008).
+require_peer_review_log() {
+  local task_dir="$1"
+  local f="$task_dir/control/peer-review.md"
+  require_nonempty_file "$f" "control/peer-review.md" || return 1
+  # Must show findings or explicit clean pass, plus host disposition.
+  grep -qiE 'finding|issue|concern|clean|pass|no issues|无问题|发现' "$f" \
+    || { echo "control/peer-review.md lacks findings or clean-pass language"; return 1; }
+  grep -qiE 'host response|disposition|accept|reject|resolved|采纳|拒绝|已处理|host:' "$f" \
+    || { echo "control/peer-review.md lacks host response / disposition"; return 1; }
+}
+
 # Minimum product handoff shared by lite and full (protocol Engineering Gate + P0).
 validate_pm_minimum() {
   local task_dir="$1" task_id="$2"
@@ -497,7 +509,7 @@ validate_pm_minimum() {
     || { echo ".ship/pm-state.yaml is not complete"; return 1; }
 }
 
-# Full PM suite (21-checkpoint map → product/01–09 dense set).
+# Full PM suite (21-checkpoint map → product/01–09 dense set + peer review).
 validate_pm_full_suite() {
   local task_dir="$1"
   require_nonempty_file "$task_dir/product/02-research.md" "product/02-research.md" || return 1
@@ -505,6 +517,7 @@ validate_pm_full_suite() {
   require_nonempty_file "$task_dir/product/05-model-flow-role.md" "product/05-model-flow-role.md" || return 1
   require_nonempty_file "$task_dir/product/06-experience-spec.md" "product/06-experience-spec.md" || return 1
   require_nonempty_file "$task_dir/product/07-data-permission-analytics.md" "product/07-data-permission-analytics.md" || return 1
+  require_peer_review_log "$task_dir" || return 1
 }
 
 validate_artifacts() {
