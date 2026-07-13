@@ -1,5 +1,5 @@
 task_id: continue-yishuship-transformation-work-after-migrating-produ
-active: true
-current_phase: e2e
-status: running
-updated_at: "2026-07-09T16:15:24Z"
+active: false
+current_phase: handoff
+status: complete
+updated_at: "2026-07-13T14:31:00Z"
