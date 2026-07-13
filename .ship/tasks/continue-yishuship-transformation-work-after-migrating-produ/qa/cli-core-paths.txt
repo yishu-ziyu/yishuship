@@ -1,0 +1,25 @@
+Command: bash scripts/validate-artifacts.sh --check --json
+Exit: 0
+Output:
+{
+  "decision": "allow",
+  "reason": "all artifacts match"
+}
+
+Command: bash scripts/validate-artifacts.sh --check --task continue-yishuship-transformation-work-after-migrating-produ --json
+Exit: 0
+Output:
+{
+  "decision": "allow",
+  "reason": "all artifacts match"
+}
+
+Command: bash scripts/auto-orchestrate.sh status --json
+Exit: 0
+Output:
+{"active":true,"task_id":"continue-yishuship-transformation-work-after-migrating-produ","phase":"qa","branch":"yishuship/continue-yishuship-transformation-work-after-migrating-produ","review_fix_round":0,"qa_fix_round":0,"e2e_fix_round":0,"head":"886914b1ef8250ca8877e0a1c34e58fe6437b3eb"}
+
+Command: bash scripts/validate-artifacts.sh --bogus
+Exit: 1
+Output:
+Usage: scripts/validate-artifacts.sh {--check [--json] [--task <id>]|--update <file> [...]|--init}
