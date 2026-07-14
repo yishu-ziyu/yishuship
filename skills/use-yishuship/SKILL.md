@@ -42,6 +42,13 @@ state is a contract failure (see `docs/decisions/DEC-0005-activation-contract.md
    `status` (or SessionStart `YISHUSHIP_STATE_SENSE`). Required fields:
    现在 / 缺什么 / 下一步 / 做完后(effect) / 你怎么确认(presentation) / 先感受(preview).
    Naked next steps without effect + presentation + preview are forbidden.
+6. **Unknown Gate** - before routing into design/dev/arch (and again before any
+   business source edit that relies on facts), read and apply
+   `../.shared/unknown-gate.md`.
+   Rule: **no citable evidence → unknown → research first** (or label
+   assumption / ask user / BLOCKED). Confidence is not evidence.
+   Mid-flight unknowns use light research (primary sources, repo read, observe).
+   Product-shaped "should we build" unknowns still go through pm-intake research.
 
 ### Delivery intents (default-on)
 
@@ -74,12 +81,15 @@ Silent skip of delivery process is forbidden.
    `next_action=resume`, continue that task before routing new work.
 2. Read `.ship/ship-auto.local.md` and `.ship/pm-state.yaml` if they exist,
    because an active run beats a fresh route.
-3. For non-trivial product or engineering work, read `../.shared/matt-pocock-standard.md` and `../../vendor/mattpocock-skills/skills/engineering/ask-matt/SKILL.md` before choosing the route.
-4. Classify the request as product, architecture selection, architecture detail, implementation, review, QA, E2E, refactor, docs, handoff, growth, conversation, or L0_bypass.
-5. For delivery intents: enter state (bootstrap enter or equivalent) and announce before business source edits.
-6. Present State Sense (`sense_report`) to the user; one next step with effect/presentation/preview.
-7. Choose the lightest route that preserves quality.
-8. If the route is ambiguous, ask one short question; otherwise dispatch or state the next skill directly.
+3. Read `../.shared/unknown-gate.md` (Unknown Gate). Scan the request for
+   uncited claims (types A–F). If delivery work depends on unknowns, plan
+   research before design/code; do not route as if those facts were settled.
+4. For non-trivial product or engineering work, read `../.shared/matt-pocock-standard.md` and `../../vendor/mattpocock-skills/skills/engineering/ask-matt/SKILL.md` before choosing the route.
+5. Classify the request as product, architecture selection, architecture detail, implementation, review, QA, E2E, refactor, docs, handoff, growth, conversation, or L0_bypass.
+6. For delivery intents: enter state (bootstrap enter or equivalent) and announce before business source edits.
+7. Present State Sense (`sense_report`) to the user; one next step with effect/presentation/preview.
+8. Choose the lightest route that preserves quality.
+9. If the route is ambiguous, ask one short question; otherwise dispatch or state the next skill directly.
 
 ## Execution Model (order / parallel / loops)
 
@@ -209,6 +219,10 @@ changes after it, how the user verifies, and a feel-first preview when possible.
 Do not end with multiple equivalent options unless the user explicitly asks to
 compare them.
 
+Unknown Gate must not be violated on the way out: no delivery step may treat
+uncited A–F claims as settled. If still unknown, the "done" output is research,
+an explicit ASSUMPTION list, a user question, or BLOCKED — not fake certainty.
+
 ## [Router] Report Card
 
 | Field | Value |
@@ -216,6 +230,7 @@ compare them.
 | Status | <ROUTED / ASK_USER / BLOCKED> |
 | Intent | <product / architecture-selection / architecture-detail / implementation / review / QA / E2E / refactor / docs / handoff / growth / conversation> |
 | Route | </yishuship:* or direct action> |
+| Unknown Gate | <clear / research-first / ASSUMPTION / BLOCKED — cite or type A–F> |
 | Effect | <what changes after this step> |
 | Presentation | <how user verifies> |
 | Preview | <smallest feel-first slice> |
@@ -229,7 +244,7 @@ compare them.
 ```text
 .ship/tasks/<task_id>/
   input/idea.md             ← 原始灵感或需求
-  product/*                 ← V2 产品生命周期制品 (如 00-product-type.json, 09-tech-project-plan.md)
+  product/*                 ← V2 产品生命周期制品 (含 00b-scope-challenge、00c-go-decision / Human Go)
   delivery/design-spec.md   ← 交付设计规格
   control/lifecycle-checklist.yaml ← V2 生命周期检查清单
   plan/*                    ← 兼容原版的工程计划文件 (spec.md, peer-spec.md, plan.md, diff-report.md)

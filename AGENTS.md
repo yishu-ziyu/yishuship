@@ -19,7 +19,7 @@ skills/
   arch-design/      系统设计
   visual-design/    DESIGN.md 视觉系统
   write-docs/       文档生成
-  .shared/          共享参考（runtime-resolution, product-lifecycle-21, report-card, startup, cleanup）
+  .shared/          共享参考（unknown-gate, execution-model, runtime-resolution, product-lifecycle-21, report-card, startup, cleanup, matt-pocock-standard）
 hooks/              质量门 hooks
 scripts/            状态机脚本
 docs/               设计文档
@@ -46,4 +46,5 @@ echo '{"cwd":"/path","tool_name":"Edit"}' | bash scripts/phase-guardrail.sh
 - 决策沉淀到 `docs/decisions/DEC-NNNN.md`
 - 非平凡工程流程遵循 `skills/.shared/matt-pocock-standard.md`，并按 phase 读取对应的 `vendor/mattpocock-skills/**/SKILL.md`
 - 执行秩序遵循 `skills/.shared/execution-model.md`：阶段依赖串行、阶段内可并行、失败回环
+- 未知先调研遵循 `skills/.shared/unknown-gate.md`：无证据即未知，禁止用自信代替引用；入口见 `use-yishuship`
 - Conventional Commits: `feat(pm):`, `fix(skill):`, `docs(readme):`
