@@ -30,7 +30,9 @@ across stages; Layer-2 parallel stays **inside** each phase skill; Layer-3 is
 orchestrator `*_fix` / retry then escalate.
 
 - The orchestrator owns `.ship/ship-auto.local.md`; do not edit it manually.
-- Do not dispatch design until the orchestrator emits `PHASE:pm_intake` and then accepts `pm_intake:success`.
+- Do not dispatch design until the orchestrator accepts `pm_intake:success` **and**
+  either Human Go is approved or `require_human_go` is false. On
+  `ACTION:await_human`, stop and wait for the user (DEC-0009).
 - Do not skip Matt's alignment/shared-language layer; `pm_intake` must settle product intent, key terms, and hard-to-reverse decisions before engineering.
 - If a design question needs a runnable answer, create a prototype branch through `design`/`dev` and preserve the answer in artifacts before continuing.
 - Do not claim completion unless the orchestrator emits `ACTION:done`.
@@ -60,7 +62,25 @@ fi
      `complete e2e` / `complete review` when that side finishes.
    - `await_parallel` — one side of the join finished; still run/complete
      `PENDING` (e2e or review). Do not start QA until join succeeds.
+   - `await_human` — **Human Go gate** after `pm_intake`. Stop and show the user
+     `product/00c-go-decision.md`. Do **not** forge approval. After the user
+     approves, run:
+     `bash scripts/auto-orchestrate.sh approve_go`
+     (or `resume` if they edited `status: approved` themselves).
    - `done` / `escalate` — stop.
+
+### Human Go (DEC-0009)
+
+Default `require_human_go: true` on auto init. After PM artifacts validate:
+
+| Decision in 00c | Result |
+|-----------------|--------|
+| No-Go | `ACTION:done`, spine stops |
+| Go / Shrink + approval pending | `ACTION:await_human`, phase `await_human_go` |
+| Go / Shrink + `status: approved` | dispatch `design` |
+
+Disable only for CI/benchmarks: `require_human_go: false` in state, or
+`YISHUSHIP_REQUIRE_HUMAN_GO=0`.
 4. Classify each phase report card and call `complete <PHASE> --verdict=...`.
 5. Repeat until the orchestrator emits `ACTION:done` or `ACTION:escalate`.
 

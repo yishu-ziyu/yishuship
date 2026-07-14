@@ -245,6 +245,7 @@ Not a perfect 189 score. Must include:
 
 - `product/00-product-type.json`
 - `product/00b-scope-challenge.md`
+- `product/00c-go-decision.md` (Decision: Go / No-Go / Shrink + Human approval section; see DEC-0009)
 - `product/01-strategy.md`
 - `product/03-problem-solution.md`
 - `product/08-prd.md` (with Success Metrics, Assumptions, Kill Criteria)
@@ -253,6 +254,11 @@ Not a perfect 189 score. Must include:
 - `control/lifecycle-checklist.yaml`
 - `delivery/design-spec.md`
 - `plan/spec.md`
+
+**Human Go (DEC-0009):** under `/yishuship:auto` with `require_human_go: true` (default),
+PM handoff success does **not** auto-start design until Human approval is
+`status: approved` (user edit or `bash scripts/auto-orchestrate.sh approve_go`).
+Agent may draft the Decision; only the human may approve. No-Go stops the spine.
 
 ### Full suite (`scope_mode: full` or `refactor` under auto)
 

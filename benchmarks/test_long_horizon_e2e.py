@@ -121,6 +121,10 @@ class TestPmGateBlocksAgentCalls(unittest.TestCase):
         (product / "00b-scope-challenge.md").write_text(
             "# Scope\n\n## Must-ship\n- x\n\n## Keep / Cut / Defer\n| a | owner | Keep | r |\n"
         )
+        (product / "00c-go-decision.md").write_text(
+            "# Go Decision\n\n## Decision\nGo\n\n"
+            "## Human approval\nstatus: approved\napproved_by: user\n"
+        )
         for f in ["01-strategy.md", "03-problem-solution.md", "09-tech-project-plan.md"]:
             (product / f).write_text("content\n")
         (product / "08-prd.md").write_text(
@@ -361,6 +365,10 @@ class TestMarkerTampering(unittest.TestCase):
         (product / "00-product-type.json").write_text('{"product_type":"C"}\n')
         (product / "00b-scope-challenge.md").write_text(
             "# Scope\n\n## Must-ship\n- x\n\n## Keep / Cut / Defer\n| a | o | Keep | r |\n"
+        )
+        (product / "00c-go-decision.md").write_text(
+            "# Go Decision\n\n## Decision\nGo\n\n"
+            "## Human approval\nstatus: approved\napproved_by: user\n"
         )
         for f in ["01-strategy.md", "03-problem-solution.md", "09-tech-project-plan.md"]:
             (product / f).write_text("content\n")
@@ -1072,6 +1080,10 @@ class TestCrossSessionResume(unittest.TestCase):
         (product / "00b-scope-challenge.md").write_text(
             "# Scope\n\n## Must-ship\n- core\n\n## Keep / Cut / Defer\n| x | owner | Keep | reason |\n"
         )
+        (product / "00c-go-decision.md").write_text(
+            "# Go Decision\n\n## Decision\nGo\n\n"
+            "## Human approval\nstatus: approved\napproved_by: user\n"
+        )
         for f in ["01-strategy.md", "03-problem-solution.md", "09-tech-project-plan.md"]:
             (product / f).write_text("# doc\n\ncontent\n")
         (product / "08-prd.md").write_text(
@@ -1246,6 +1258,73 @@ class TestCrossSessionResume(unittest.TestCase):
         fields = self._parse_kv_output(proc.stdout)
         self.assertEqual(fields["ACTION"], "dispatch")
         self.assertEqual(fields["PHASE"], "design")
+
+    def test_pm_awaits_human_go_when_approval_pending(self):
+        """DEC-0009: pending Human approval stops auto before design."""
+        task_id = self._init_task("add billing feature")
+        task_dir = Path(self.repo) / ".ship" / "tasks" / task_id
+        self._write_pm_intake_artifacts(task_dir, lite=False)
+        (task_dir / "product" / "00c-go-decision.md").write_text(
+            "# Go Decision\n\n## Decision\nGo\n\n"
+            "## Human approval\nstatus: pending\n"
+        )
+        pm_state = Path(self.repo) / ".ship" / "pm-state.yaml"
+        pm_state.write_text(f"task_id: {task_id}\nphase: complete\n")
+        proc = subprocess.run(
+            ["bash", ORCH_SCRIPT, "complete", "pm_intake", "--verdict=success"],
+            capture_output=True, text=True, cwd=self.repo,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+        fields = self._parse_kv_output(proc.stdout)
+        self.assertEqual(fields["ACTION"], "await_human")
+        self.assertEqual(fields["PHASE"], "await_human_go")
+
+    def test_approve_go_advances_to_design(self):
+        """approve_go writes approval and dispatches design from await_human_go."""
+        task_id = self._init_task("add billing feature")
+        task_dir = Path(self.repo) / ".ship" / "tasks" / task_id
+        self._write_pm_intake_artifacts(task_dir, lite=False)
+        (task_dir / "product" / "00c-go-decision.md").write_text(
+            "# Go Decision\n\n## Decision\nGo\n\n"
+            "## Human approval\nstatus: pending\n"
+        )
+        pm_state = Path(self.repo) / ".ship" / "pm-state.yaml"
+        pm_state.write_text(f"task_id: {task_id}\nphase: complete\n")
+        proc = subprocess.run(
+            ["bash", ORCH_SCRIPT, "complete", "pm_intake", "--verdict=success"],
+            capture_output=True, text=True, cwd=self.repo,
+        )
+        self.assertEqual(self._parse_kv_output(proc.stdout)["ACTION"], "await_human")
+        proc = subprocess.run(
+            ["bash", ORCH_SCRIPT, "approve_go", "--decision=Go", "--notes=test"],
+            capture_output=True, text=True, cwd=self.repo,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+        fields = self._parse_kv_output(proc.stdout)
+        self.assertEqual(fields["ACTION"], "dispatch")
+        self.assertEqual(fields["PHASE"], "design")
+        go_text = (task_dir / "product" / "00c-go-decision.md").read_text()
+        self.assertIn("status: approved", go_text)
+
+    def test_pm_nogo_stops_spine(self):
+        """No-Go decision completes auto without design."""
+        task_id = self._init_task("add billing feature")
+        task_dir = Path(self.repo) / ".ship" / "tasks" / task_id
+        self._write_pm_intake_artifacts(task_dir, lite=False)
+        (task_dir / "product" / "00c-go-decision.md").write_text(
+            "# Go Decision\n\n## Decision\nNo-Go\n\n"
+            "## Human approval\nstatus: approved\napproved_by: user\n"
+        )
+        pm_state = Path(self.repo) / ".ship" / "pm-state.yaml"
+        pm_state.write_text(f"task_id: {task_id}\nphase: complete\n")
+        proc = subprocess.run(
+            ["bash", ORCH_SCRIPT, "complete", "pm_intake", "--verdict=success"],
+            capture_output=True, text=True, cwd=self.repo,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr + proc.stdout)
+        fields = self._parse_kv_output(proc.stdout)
+        self.assertEqual(fields["ACTION"], "done")
+        self.assertNotEqual(fields.get("PHASE"), "design")
 
     def test_pm_full_rejects_missing_research(self):
         """scope_mode=full requires 02-research etc."""

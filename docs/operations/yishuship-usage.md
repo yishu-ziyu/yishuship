@@ -33,6 +33,27 @@ standard for non-trivial work, then chooses one route or asks one blocking
 question. When a phase maps to Matt, the phase reads the corresponding
 `vendor/mattpocock-skills/**/SKILL.md` before executing that lane.
 
+### Auto vs single skill (read this if auto feels rigid)
+
+| Entry | Behavior |
+|-------|----------|
+| `/yishuship:use-yishuship` + single skills | Flexible: only the stage you need |
+| `/yishuship:auto` | **Fixed spine** PM → design → dev → e2e∥review → qa → refactor → handoff |
+
+Auto is for explicit end-to-end delivery, not smart routing. Process mapping
+(company delivery language → skills) and OPC defaults:
+[entry-and-flow-mapping.md](entry-and-flow-mapping.md).
+
+### Human Go after PM (default on auto)
+
+After `pm_intake`, auto waits for your立项-style commit:
+
+1. Agent writes `product/00c-go-decision.md` (Decision + pending approval)
+2. Orchestrator emits `ACTION:await_human` until you approve
+3. You run `bash scripts/auto-orchestrate.sh approve_go` (or set `status: approved` and `resume`)
+
+Details: [DEC-0009](../decisions/DEC-0009-human-go-gate.md).
+
 ## Activation (enter state first)
 
 Delivery work must enter yishuship state before business source edits.
@@ -74,7 +95,7 @@ Details: [activation.md](activation.md) and
 | Structured docs | `/yishuship:write-docs` | Managed docs under `docs/`, index updated |
 | Visual system | `/yishuship:visual-design` | `DESIGN.md` and preview HTML |
 | Release, PR, CI continuation, context transfer | `/yishuship:handoff` | Handoff/PR/CI artifacts without duplicating existing files |
-| Full delivery | `/yishuship:auto` | PM → design → dev → e2e → review → qa → handoff |
+| Full delivery | `/yishuship:auto` | PM → **Human Go** → design → dev → e2e → review → qa → refactor → handoff |
 
 ## Triggers
 

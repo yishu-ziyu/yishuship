@@ -235,7 +235,8 @@ vendor/
 | 入口 | `/ship:use-ship` | `/yishuship:use-yishuship` |
 | 新功能 | 直接进入 design | 先进入 product lifecycle |
 | 产品判断 | 弱 | 做不做、为谁做、为什么做、怎么验证 |
-| 工程主链 | design -> dev -> review | alignment -> PRD -> slices -> TDD -> review -> QA -> handoff |
+| 工程主链 | design -> dev -> review | alignment -> PRD -> Human Go -> slices -> TDD -> review -> QA -> handoff |
+| 入口选择 | 常一上来 full auto | auto 固定脊骨；灵活用 router / 单 skill。见 [entry-and-flow-mapping](docs/operations/entry-and-flow-mapping.md) · [DEC-0009](docs/decisions/DEC-0009-human-go-gate.md) |
 | 上游标准 | 无 | Matt Pocock upstream runtime |
 | 质量评测 | 无 | SkillOpt PM scorer + Matt flow scorer |
 | 产物沉淀 | `.ship/` | `.ship/` + `CONTEXT.md` + decisions + operations docs |

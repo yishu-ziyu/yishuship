@@ -67,6 +67,15 @@ emit_await_parallel() {
   emit "MESSAGE" "$message"
 }
 
+# Human Go gate (DEC-0009): stop auto spine until the user approves 00c-go-decision.
+emit_await_human_go() {
+  local message="$1"
+  emit "ACTION" "await_human"
+  emit "PHASE" "await_human_go"
+  emit "GATE" "human_go"
+  emit "MESSAGE" "$message"
+}
+
 # Join e2e∥review when both marked done → qa.
 try_join_verify_parallel() {
   local task_id e2e_st rev_st
@@ -467,6 +476,88 @@ require_scope_challenge() {
     || { echo "product/00b-scope-challenge.md lacks keep/cut/defer (or 必做/非目标) content"; return 1; }
 }
 
+# Human Go artifact (always required at PM minimum). Agent may draft Decision;
+# only the human may set approval status to approved (or use approve_go).
+require_go_decision() {
+  local task_dir="$1"
+  local f="$task_dir/product/00c-go-decision.md"
+  require_nonempty_file "$f" "product/00c-go-decision.md" || return 1
+  grep -qiE '^#{1,3}[[:space:]]*(Decision|决策)' "$f" \
+    || { echo "product/00c-go-decision.md missing Decision / 决策 section"; return 1; }
+  grep -qiE '(Go|No-Go|NoGo|Nogo|Shrink|缩刀|不做|通过)' "$f" \
+    || { echo "product/00c-go-decision.md Decision must mention Go / No-Go / Shrink"; return 1; }
+  grep -qiE '^#{1,3}[[:space:]]*(Human approval|人工批准|人批准|Approval)' "$f" \
+    || { echo "product/00c-go-decision.md missing Human approval section"; return 1; }
+}
+
+go_decision_is_nogo() {
+  local f="$1"
+  local body
+  body=$(awk '
+    BEGIN{p=0}
+    /^#{1,3}[[:space:]]*(Decision|决策)/ {p=1; next}
+    /^#{1,3}[[:space:]]/ && p==1 {exit}
+    p==1 {print}
+  ' "$f" 2>/dev/null)
+  echo "$body" | grep -qiE '(No-Go|NoGo|Nogo|不做|不立项|拒绝)' && return 0
+  return 1
+}
+
+human_go_is_approved() {
+  local f="$1"
+  if grep -qiE 'status:[[:space:]]*(approved|yes|true|已批准|通过)' "$f"; then
+    return 0
+  fi
+  if grep -qiE '(approved_by|批准人|approved by):[[:space:]]*(user|human|我|owner)' "$f"; then
+    return 0
+  fi
+  awk '
+    BEGIN{p=0}
+    /^#{1,3}[[:space:]]*(Human approval|人工批准|人批准|Approval)/ {p=1; next}
+    /^#{1,3}[[:space:]]/ && p==1 {exit}
+    p==1 {print}
+  ' "$f" 2>/dev/null | grep -qiE 'approved|已批准|user said go|人工确认|I approve'
+}
+
+require_human_go_enabled() {
+  local v
+  v=$(state_get "require_human_go" 2>/dev/null || true)
+  if [ -z "$v" ]; then
+    v="${YISHUSHIP_REQUIRE_HUMAN_GO:-true}"
+  fi
+  case "$v" in
+    0|false|False|FALSE|no|No|NO|off|Off|OFF) return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
+# After PM artifacts validate: await human, stop on No-Go, or start design.
+advance_after_pm_intake() {
+  local task_id="$1"
+  local task_dir=".ship/tasks/$task_id"
+  local f="$task_dir/product/00c-go-decision.md"
+
+  if go_decision_is_nogo "$f"; then
+    write_run_state "$task_id" "pm_intake" "complete"
+    state_set "phase" "stopped_nogo"
+    emit_done "[Auto] Human Go = No-Go. Stopping auto spine (no design/dev)."
+    return 0
+  fi
+
+  if require_human_go_enabled && ! human_go_is_approved "$f"; then
+    state_set "phase" "await_human_go"
+    write_run_state "$task_id" "await_human_go" "waiting"
+    emit_await_human_go "[Auto] PM handoff ready. Waiting for Human Go on product/00c-go-decision.md (edit status: approved, or run: bash scripts/auto-orchestrate.sh approve_go)."
+    return 0
+  fi
+
+  state_set "phase" "design"
+  write_run_state "$task_id" "design" "running"
+  local pf
+  pf=$(generate_prompt "design")
+  emit_dispatch "design" "$pf" "[Auto] Human Go approved. Starting design..."
+}
+
 require_matt_upstream_log() {
   local task_dir="$1"
   local f="$task_dir/control/matt-upstream.md"
@@ -492,6 +583,7 @@ validate_pm_minimum() {
   local task_dir="$1" task_id="$2"
   require_json_or_yaml "$task_dir/product" "00-product-type" "product/00-product-type" || return 1
   require_scope_challenge "$task_dir" || return 1
+  require_go_decision "$task_dir" || return 1
   require_nonempty_file "$task_dir/product/01-strategy.md" "product/01-strategy.md" || return 1
   require_nonempty_file "$task_dir/product/03-problem-solution.md" "product/03-problem-solution.md" || return 1
   require_prd_quality "$task_dir/product/08-prd.md" || return 1
@@ -714,6 +806,7 @@ session_id: $session_id
 branch: $branch
 phase: pm_intake
 scope_mode: $scope_mode
+require_human_go: true
 pm_intake_retry_round: 0
 design_retry_round: 0
 dev_retry_round: 0
@@ -776,6 +869,33 @@ cmd_resume() {
   local extra_args=""
 
   case "$phase" in
+    await_human_go|stopped_nogo)
+      local go_file=".ship/tasks/$task_id/product/00c-go-decision.md"
+      if [ "$phase" = "stopped_nogo" ]; then
+        emit_done "[Auto] Task previously stopped on No-Go. Start a new init to continue."
+        return 0
+      fi
+      if [ ! -f "$go_file" ]; then
+        emit_error "await_human_go but product/00c-go-decision.md missing"
+        exit 1
+      fi
+      if go_decision_is_nogo "$go_file"; then
+        state_set "phase" "stopped_nogo"
+        write_run_state "$task_id" "pm_intake" "complete"
+        emit_done "[Auto] Human Go = No-Go. Stopping auto spine."
+        return 0
+      fi
+      if require_human_go_enabled && ! human_go_is_approved "$go_file"; then
+        emit_await_human_go "[Auto] Still waiting for Human Go. Edit product/00c-go-decision.md (status: approved) or run: bash scripts/auto-orchestrate.sh approve_go"
+        return 0
+      fi
+      state_set "phase" "design"
+      write_run_state "$task_id" "design" "running"
+      local pf_go
+      pf_go=$(generate_prompt "design")
+      emit_dispatch "design" "$pf_go" "[Auto] Human Go approved on resume. Starting design..."
+      return 0
+      ;;
     verify_parallel)
       # Resume mid parallel join: re-dispatch whatever is still pending.
       local e2e_st rev_st e2e_pf rev_pf
@@ -896,10 +1016,7 @@ cmd_complete() {
 
   case "${phase}:${verdict}" in
     pm_intake:success)
-      state_set "phase" "design"
-      write_run_state "$task_id" "design" "running"
-      local pf; pf=$(generate_prompt "design")
-      emit_dispatch "design" "$pf" "[Auto] Product lifecycle handoff complete. Starting design..."
+      advance_after_pm_intake "$task_id"
       ;;
     pm_intake:fail|pm_intake:blocked) retry_or_escalate "pm_intake" "$summary" ;;
 
@@ -1200,6 +1317,110 @@ cmd_status() {
   fi
 }
 
+# ── APPROVE_GO Command ──────────────────────────────────────
+
+cmd_approve_go() {
+  require_state_file
+  local task_id decision notes f now
+  task_id=$(state_get "task_id")
+  [ -z "$task_id" ] && { emit_error "No task_id in state"; exit 1; }
+
+  decision="Go"
+  notes=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --decision=*) decision="${1#--decision=}" ;;
+      --notes=*) notes="${1#--notes=}" ;;
+      --decision) shift; decision="${1:-Go}" ;;
+      --notes) shift; notes="${1:-}" ;;
+    esac
+    shift || true
+  done
+
+  f=".ship/tasks/$task_id/product/00c-go-decision.md"
+  mkdir -p "$(dirname "$f")"
+  now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+  if [ ! -f "$f" ]; then
+    cat > "$f" <<EOF
+# Go Decision
+
+## Decision
+$decision
+
+## Scope this cycle
+- (filled by approve_go; refine if needed)
+
+## Acceptance
+- (see product/08-prd.md)
+
+## Budget
+- (set by owner)
+
+## Explicit non-goals
+- (see 00b-scope-challenge)
+
+## Kill / stop
+- (see product/08-prd.md Kill Criteria)
+
+## Human approval
+status: approved
+approved_at: $now
+approved_by: user
+notes: $notes
+EOF
+  else
+    # Normalize Decision section value lightly by appending approval block
+    if ! grep -qiE '^#{1,3}[[:space:]]*(Decision|决策)' "$f"; then
+      printf '\n## Decision\n%s\n' "$decision" >> "$f"
+    fi
+    # Strip previous Human approval section then append fresh approved block
+    local tmp
+    tmp=$(mktemp)
+    awk '
+      BEGIN{skip=0}
+      /^#{1,3}[[:space:]]*(Human approval|人工批准|人批准|Approval)/ {skip=1; next}
+      /^#{1,3}[[:space:]]/ && skip==1 {skip=0}
+      skip==0 {print}
+    ' "$f" > "$tmp"
+    {
+      cat "$tmp"
+      echo ""
+      echo "## Human approval"
+      echo "status: approved"
+      echo "approved_at: $now"
+      echo "approved_by: user"
+      echo "notes: $notes"
+      echo "decision_confirmed: $decision"
+    } > "$f"
+    rm -f "$tmp"
+  fi
+
+  state_set "require_human_go" "true"
+  # If currently waiting or still on pm_intake complete path, resume into design
+  local phase
+  phase=$(state_get "phase")
+  case "$phase" in
+    await_human_go|pm_intake|stopped_nogo)
+      if go_decision_is_nogo "$f"; then
+        state_set "phase" "stopped_nogo"
+        emit_done "[Auto] approve_go recorded No-Go. Spine stopped."
+        return 0
+      fi
+      state_set "phase" "design"
+      write_run_state "$task_id" "design" "running"
+      local pf
+      pf=$(generate_prompt "design")
+      emit_dispatch "design" "$pf" "[Auto] approve_go accepted ($decision). Starting design..."
+      ;;
+    *)
+      emit "ACTION" "ok"
+      emit "PHASE" "$phase"
+      emit "MESSAGE" "[Auto] approve_go wrote Human approval (status: approved). Current phase=$phase unchanged."
+      ;;
+  esac
+}
+
 # ── Main Dispatch ───────────────────────────────────────────
 
 COMMAND="${1:-}"
@@ -1211,8 +1432,9 @@ case "$COMMAND" in
     [ -z "$description" ] && { emit_error "Usage: auto-orchestrate.sh init \"<description>\""; exit 1; }
     cmd_init "$description"
     ;;
-  resume)   cmd_resume ;;
-  complete) cmd_complete "$@" ;;
-  status)   cmd_status "$@" ;;
-  *)        emit_error "Usage: auto-orchestrate.sh {init|resume|complete|status}"; exit 1 ;;
+  resume)     cmd_resume ;;
+  complete)   cmd_complete "$@" ;;
+  approve_go) cmd_approve_go "$@" ;;
+  status)     cmd_status "$@" ;;
+  *)          emit_error "Usage: auto-orchestrate.sh {init|resume|complete|approve_go|status}"; exit 1 ;;
 esac

@@ -371,6 +371,52 @@ If architecture selection is not settled, include the architecture decision here
 
 Update state to `phase: handoff`.
 
+## Step 6b: Human Go Decision → `product/00c-go-decision.md`
+
+Before engineering handoff is complete, write the Go gate artifact (DEC-0009).
+
+Required template:
+
+```markdown
+# Go Decision
+
+## Decision
+Go | No-Go | Shrink
+
+## Scope this cycle
+- ...
+
+## Acceptance
+- [ ] ...
+
+## Budget
+- human hours:
+- calendar:
+- money / API:
+
+## Explicit non-goals
+- ...
+
+## Kill / stop
+- ...
+
+## Human approval
+status: pending
+approved_at:
+approved_by:
+notes:
+```
+
+Rules:
+
+- Agent **drafts** Decision / scope / budget from the PRD; agent does **not** set
+  `status: approved` unless the user explicitly said Go / 立项 / 做 / approve in
+  this turn.
+- Under `/yishuship:auto`, design does not start until Human approval is approved
+  (`approve_go` or user edit). No-Go stops the auto spine.
+- Standalone pm-intake: still write `00c`; if user already said Go in-session, you
+  may set `status: approved` with `approved_by: user` and a short notes quote.
+
 ## Step 7: Engineering Handoff → `delivery/design-spec.md`
 
 Write `delivery/design-spec.md` as the product-to-engineering bridge.
@@ -416,12 +462,15 @@ Update state to `phase: complete` when handoff (and peer-review if required) is 
 Done means the V2 product handoff is complete in the same `$TASK_DIR`: all
 required checkpoints are marked in `control/lifecycle-checklist.yaml` (with
 when: pre_cycle/in_cycle/post_cycle when known), required product files exist
-under `product/` (including `00b-scope-challenge.md` unless N/A with reason),
+under `product/` (including `00b-scope-challenge.md` and `00c-go-decision.md`
+unless N/A with reason),
 `control/matt-upstream.md` lists Matt paths actually opened,
 `control/peer-review.md` exists for full scope (or lite waiver with reason),
 `delivery/design-spec.md` bridges product to engineering, and `plan/spec.md`
 contains engineering-facing acceptance criteria. If any required checkpoint is
 unknown, mark the phase `BLOCKED` rather than inventing certainty.
+If Human approval is still `pending`, that is OK for standalone pm-intake DONE;
+auto will emit `ACTION:await_human` until the user approves.
 
 ## [PM Intake] Report Card
 
