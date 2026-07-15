@@ -3,7 +3,7 @@
 ## mattpocock-skills
 
 - Source: `https://github.com/mattpocock/skills`
-- Vendored revision: `d574778f94cf620fcc8ce741584093bc650a61d3`
+- Vendored revision: `e9fcdf95b402d360f90f1db8d776d5dd450f9234`
 - Upstream package version: 1.1.0 (CHANGELOG)
 - License: MIT, preserved at `vendor/mattpocock-skills/LICENSE`
 - yishuship adapter: `skills/.shared/matt-pocock-standard.md`
