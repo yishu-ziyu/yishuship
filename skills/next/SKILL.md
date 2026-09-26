@@ -35,8 +35,9 @@ one idea one step and leaves the progress file true.
 ## A slice
 
 4. **Settle the behaviors.** Any behavior of this slice that still has a choice
-   goes to the user, batched, in the layout of `../shared/asking.md`. Decide
-   everything inside the box yourself.
+   goes to the user, batched. Read `../shared/asking.md` before writing any
+   question and use its layout exactly; a plain numbered list is not it.
+   Decide everything inside the box yourself.
 5. **Read the project's own rules first** (AGENTS.md, CLAUDE.md, CONTEXT.md,
    ADRs) and follow them. New domain terms go into CONTEXT.md if it exists.
 6. **Build it the way this slice calls for.** Open the entries of

@@ -16,7 +16,8 @@ to lose.
   costs; then decides go / shrink / drop.
 - Done when: `.ship/ideas/<slug>.md` exists in the project (see
   `../shared/progress-file.md`), the project is registered, and the user has
-  been asked for the decision in the layout of `../shared/asking.md`.
+  been asked for the decision in the layout of `../shared/asking.md` (read it
+  before writing the question).
 - Evidence: the user's own words, the project's current state (read the repo,
   its AGENTS.md / CLAUDE.md / CONTEXT.md), and, when the problem is not new,
   how two or three existing products or tools already solve it. Look them up;
