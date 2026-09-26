@@ -6,7 +6,9 @@ Each project keeps one progress file per idea at .ship/ideas/<slug>.md.
 
   ideas.py                 print the overview
   ideas.py --json          machine-readable
-  ideas.py --register DIR  add a project (idempotent)
+  ideas.py --register DIR  add a project (idempotent); links it into Obsidian if configured
+  ideas.py --link-all      (re)create the Obsidian links for every registered project
+  ideas.py --refresh FILE  rewrite the "走到哪了" summary of a progress file from its front matter
   ideas.py --current DIR   the active idea for DIR, as JSON
   ideas.py --status-line DIR   one line for the terminal status line (empty if none)
   ideas.py --route DIR     where /yishuship should go from DIR, as JSON
@@ -20,6 +22,7 @@ import sys
 from pathlib import Path
 
 REGISTRY = Path.home() / ".yishuship" / "projects"
+CONFIG = Path.home() / ".yishuship" / "config"
 ACTIVE = {"shaping", "building", "waiting", "shipping"}
 QUIET_DAYS = 7
 RECENT_SHIP_DAYS = 30
@@ -47,8 +50,9 @@ def load(project: Path) -> list[dict]:
     ideas = []
     for f in idea_files(project):
         meta = read_front_matter(f)
-        if not meta.get("idea"):
+        if not (meta.get("idea") or meta.get("title")):
             continue
+        meta.setdefault("idea", meta.get("title", ""))
         meta["file"] = str(f)
         meta.setdefault("project", project.name)
         meta["project_root"] = str(project)
@@ -69,6 +73,36 @@ def projects() -> list[Path]:
     return [Path(p) for p in REGISTRY.read_text(encoding="utf-8").splitlines() if p.strip()]
 
 
+def config() -> dict[str, str]:
+    if not CONFIG.exists():
+        return {}
+    pairs = (line.partition("=") for line in CONFIG.read_text(encoding="utf-8").splitlines())
+    return {k.strip(): v.strip() for k, sep, v in pairs if sep and not k.startswith("#")}
+
+
+def link_into_obsidian(root: Path) -> str | None:
+    """<obsidian_dir>/<project>/{ideas,evidence} -> <root>/.ship/{ideas,evidence}.
+
+    Same names on both sides, so relative image links in a progress file
+    (../evidence/...) resolve in the repo and in Obsidian alike.
+    """
+    target_dir = config().get("obsidian_dir")
+    if not target_dir:
+        return None
+    folder = Path(target_dir).expanduser() / root.name
+    folder.mkdir(parents=True, exist_ok=True)
+    for name in ("ideas", "evidence"):
+        source = root / ".ship" / name
+        source.mkdir(parents=True, exist_ok=True)
+        link = folder / name
+        if link.is_symlink() and link.resolve() == source.resolve():
+            continue
+        if link.exists() or link.is_symlink():
+            raise SystemExit(f"{link} exists and is not a link to {source}; not touching it")
+        link.symlink_to(source, target_is_directory=True)
+    return str(folder)
+
+
 def register(directory: str) -> None:
     root = Path(directory).expanduser().resolve()
     known = projects()
@@ -77,6 +111,40 @@ def register(directory: str) -> None:
         with REGISTRY.open("a", encoding="utf-8") as f:
             f.write(f"{root}\n")
     print(f"registered {root}")
+    linked = link_into_obsidian(root)
+    if linked:
+        print(f"linked into Obsidian: {linked}")
+
+
+SUMMARY_START, SUMMARY_END = "<!-- 走到哪了：由 ideas.py --refresh 生成，不要手改 -->", "<!-- /走到哪了 -->"
+
+
+def refresh(path: str) -> None:
+    """Rewrite the summary callout at the top of a progress file from its front matter."""
+    file = Path(path)
+    text = file.read_text(encoding="utf-8")
+    meta = read_front_matter(file)
+    if meta.get("waiting"):
+        count = len([q for q in re.split(r"[；;]", meta["waiting"]) if q.strip()])
+        state = f"在等你决定 {count} 项" if count > 1 else "在等你决定"
+    else:
+        state = STEP.get(meta.get("status", ""), meta.get("status", ""))
+    lines = [SUMMARY_START, "> [!summary] 走到哪了", f"> **● {state}**"]
+    if meta.get("slice"):
+        lines.append(f"> {meta['slice']}")
+    if meta.get("waiting"):
+        lines.append(f"> 等你：{meta['waiting']}")
+    if meta.get("next"):
+        lines.append(f"> 下一步：{meta['next']}")
+    lines += [f"> 上次更新：{meta.get('updated', '')}", SUMMARY_END]
+    block = "\n".join(lines)
+    if SUMMARY_START in text:
+        text = re.sub(re.escape(SUMMARY_START) + r".*?" + re.escape(SUMMARY_END), lambda _: block, text, flags=re.S)
+    else:
+        end = text.index("\n---", 3) + 4  # after the closing front-matter fence
+        text = text[:end] + "\n\n" + block + text[end:]
+    file.write_text(text, encoding="utf-8")
+    print(f"refreshed {file}")
 
 
 def current(directory: str) -> dict | None:
@@ -212,6 +280,12 @@ def index_problems() -> list[str]:
 def main(argv: list[str]) -> int:
     if argv[:1] == ["--register"] and len(argv) == 2:
         register(argv[1])
+    elif argv == ["--link-all"]:
+        for root in projects():
+            if root.is_dir():
+                print(link_into_obsidian(root) or "obsidian_dir not configured")
+    elif argv[:1] == ["--refresh"] and len(argv) == 2:
+        refresh(argv[1])
     elif argv[:1] == ["--current"] and len(argv) == 2:
         print(json.dumps(current(argv[1]), ensure_ascii=False))
     elif argv[:1] == ["--status-line"] and len(argv) == 2:
