@@ -32,8 +32,9 @@ Run the route script first. Then:
      continue with it.
    If it could be two of these, ask one short question instead of guessing.
 2. **No sentence**, follow `step`:
-   - `ask` → put the current idea's `waiting` question to the user again, in
-     the layout of `../shared/asking.md` (read it first), and stop;
+   - `ask` → show the block saved under `## 等你决定` in the progress file,
+     unchanged, and stop. Redraft it only if the facts behind it changed,
+     and say what changed;
    - `continue` → `../next/SKILL.md` for the current idea;
    - `overview` → `../ideas/SKILL.md`, then offer to start one with
      `/yishuship <一句话>`.

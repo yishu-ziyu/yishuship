@@ -13,7 +13,8 @@ here.
   what you corrected.
 - Front matter is machine-read by the scripts. Keep the keys exactly as below.
 - `waiting` is non-empty only while the user owes a decision; write the
-  question in one short line.
+  question in one short line, and keep the full question block exactly as
+  shown to the user under `## 等你决定`. Clear both once answered.
 - Record decisions with their reason, not just the choice.
 
 ## Template
@@ -43,6 +44,9 @@ updated: <YYYY-MM-DD>
 1. [done] <slice> · 证据：<path or commit>
 2. [now] <slice>
 3. [next] <slice>
+
+## 等你决定
+<the question block exactly as last shown to the user, or empty>
 
 ## 下一步
 <exactly one next action, and what it needs from the user if anything>
