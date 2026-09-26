@@ -17,6 +17,10 @@ waiting: <the open questions in one short line, separated by ；, or empty>
 slice: <current slice, short: the status line shows it; or empty>
 next: <exactly one next step in one line>
 ship_bar: <what "users can use it" means here, or empty until asked>
+appetite: <how much the user will spend: slices or days; empty until asked>
+shipped: <YYYY-MM-DD, when users could use it; empty until then>
+review_on: <YYYY-MM-DD to look back at 怎样算做对了; a week after shipped>
+reviewed: <YYYY-MM-DD once looked back at; empty until then>
 updated: <YYYY-MM-DD>
 ---
 
@@ -36,6 +40,15 @@ updated: <YYYY-MM-DD>
 
 ## 为什么做
 <who, what problem, why now; two or three lines>
+
+## 怎样算做对了
+<after shipping, what the user will observe if it worked: a behavior or outcome, not "it is built">
+
+## 这次不做
+- <what this idea deliberately leaves out>
+
+## 最危险的假设
+<the one assumption most likely to sink it> · 怎么验证：<the cheapest check>
 
 ## 用户能看到的行为
 - [x] <decided behavior, in product words>

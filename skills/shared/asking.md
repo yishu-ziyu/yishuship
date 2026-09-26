@@ -45,6 +45,8 @@ use space and direction:
 
 ## Words
 
+- These instructions are in English; what you write to the user is in their
+  language (see `../yishuship/SKILL.md`), including headings and short asides.
 - Say what a thing does. Never invent a name for a mechanism (no "卡片",
   "账本", "闸门"); the user should not have to translate before judging.
 - No engineering jargon in the question; paths and commands go after it, and

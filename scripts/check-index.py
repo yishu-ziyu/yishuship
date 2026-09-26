@@ -14,12 +14,13 @@ Exit 0 when everything resolves, 1 otherwise (missing targets are listed).
 """
 from __future__ import annotations
 
+import os
 import re
 import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-PERSONAL = Path.home() / ".yishuship" / "INDEX.md"
+PERSONAL = Path(os.environ.get("YISHUSHIP_HOME") or Path.home() / ".yishuship").expanduser() / "INDEX.md"
 SKILL_DIRS = [Path.home() / ".claude" / "skills", Path.home() / ".agents" / "skills"]
 PLUGIN_CACHE = Path.home() / ".claude" / "plugins" / "cache"
 TARGET = re.compile(r"`([^`]+)`")

@@ -56,8 +56,12 @@ HOME=$(mktemp -d) bash scripts/install.sh --no-obsidian </dev/null   # fresh-use
 wc -l skills/*/*.md | tail -1      # under 400
 ```
 
-Behavior changes to the skills are verified by using them on a real idea and
-reading the transcript, not by keyword checks. A read-only run works well:
+Behavior changes to the skills are measured with the eval suite before and
+after the change: `python3 evals/run.py` (cases in `evals/cases/`, fixtures in
+`evals/fixtures/`, reports in `evals/results/`). A change that does not raise
+the score, or lowers any case, is not an improvement. Every run is isolated
+from the user's own setup; see the runner's docstring. Beyond the suite, use
+the skills on a real idea and read the transcript. A read-only run works well:
 `claude -p --permission-mode plan "/yishuship:next"` inside a project that has
 an idea in progress.
 

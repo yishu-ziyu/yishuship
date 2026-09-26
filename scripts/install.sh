@@ -73,8 +73,9 @@ if [ "$ask_obsidian" = 1 ] && [ -t 0 ]; then
 fi
 if [ -n "$obsidian" ]; then
   obsidian="${obsidian/#\~/$HOME}"
-  mkdir -p "$HOME/.yishuship" "$obsidian"
-  config="$HOME/.yishuship/config"
+  yshome="${YISHUSHIP_HOME:-$HOME/.yishuship}"
+  mkdir -p "$yshome" "$obsidian"
+  config="$yshome/config"
   { [ -f "$config" ] && grep -v '^obsidian_dir=' "$config" || true; echo "obsidian_dir=$obsidian"; } > "$config.tmp"
   mv "$config.tmp" "$config"
   python3 "$root/scripts/ideas.py" --link-all >/dev/null

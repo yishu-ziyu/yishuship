@@ -6,7 +6,14 @@
 
 - **Before and after** for anything a user can see: a screenshot, recording, or
   real output from the running product, taken this session. Compiling, tests
-  passing, or reading the code is not evidence of a visible change.
+  passing, or reading the code is not evidence of a visible change. Capture
+  "before" by running the product before the first edit and quote it as it
+  was; never describe it afterwards from memory or from the code.
+- **An independent check** before the word "done": hand a fresh subagent only
+  the decided behaviors with their examples, how to run the product, and your
+  before/after claims. It runs the product itself and reports only mismatches
+  that break a behavior or a claim, not style. Fix, check again, and say in
+  the report what it found. If no subagent can run, say the check was yours.
 - **Each decided behavior gets its own line** with the evidence that proves it.
 - **What was not verified**, stated plainly with the reason, in its own block.
   A missing layer is a gap, not an implied pass.

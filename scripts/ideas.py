@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """List every idea in progress across registered projects.
 
-Projects are registered in ~/.yishuship/projects (one absolute path per line).
+Projects are registered in ~/.yishuship/projects (one absolute path per line);
+set YISHUSHIP_HOME to use another folder than ~/.yishuship.
 Each project keeps one progress file per idea at .ship/ideas/<slug>.md.
 
   ideas.py                 print the overview
@@ -23,8 +24,9 @@ import sys
 import unicodedata
 from pathlib import Path
 
-REGISTRY = Path.home() / ".yishuship" / "projects"
-CONFIG = Path.home() / ".yishuship" / "config"
+HOME = Path(os.environ.get("YISHUSHIP_HOME") or Path.home() / ".yishuship").expanduser()
+REGISTRY = HOME / "projects"
+CONFIG = HOME / "config"
 ACTIVE = {"shaping", "building", "waiting", "shipping"}
 QUIET_DAYS = 7
 RECENT_SHIP_DAYS = 30
@@ -149,6 +151,17 @@ def refresh(path: str) -> None:
     print(f"refreshed {file}")
 
 
+def review_due(idea: dict) -> bool:
+    """Shipped, its review date has come, and nobody has looked back yet."""
+    days = days_since(idea.get("review_on", ""))
+    return idea.get("status") == "shipped" and not idea.get("reviewed") and days is not None and days >= 0
+
+
+def project_root(directory: str) -> Path | None:
+    here = Path(directory).expanduser().resolve()
+    return next((r for r in (here, *here.parents) if (r / ".ship" / "ideas").is_dir()), None)
+
+
 def current(directory: str) -> dict | None:
     """Most recently updated active idea in the project containing DIRECTORY."""
     here = Path(directory).expanduser().resolve()
@@ -163,6 +176,7 @@ def route(directory: str) -> dict:
     """What /yishuship should do from DIRECTORY, decided from disk alone.
 
     step: "ask"      the current idea waits on the user
+          "review"   a shipped idea is due for a look back at whether it worked
           "continue" the current idea has work to do
           "overview" no idea in progress here; show every idea
     Free text the user typed is judged by the skill, not here.
@@ -173,10 +187,13 @@ def route(directory: str) -> dict:
     active = sorted((i for i in ideas if i.get("status") in ACTIVE),
                     key=lambda i: (i.get("updated", ""), i["file"]), reverse=True)
     current_idea = active[0] if active else None
-    if current_idea is None:
-        step = "overview"
-    elif current_idea.get("waiting"):
+    due = [i for i in ideas if review_due(i)]
+    if current_idea is not None and current_idea.get("waiting"):
         step = "ask"
+    elif due:
+        step, current_idea = "review", due[0]
+    elif current_idea is None:
+        step = "overview"
     else:
         step = "continue"
     brief = lambda i: {k: i.get(k, "") for k in ("idea", "status", "waiting", "slice", "file", "updated")}
@@ -190,7 +207,7 @@ def route(directory: str) -> dict:
 
 
 def overview() -> tuple[dict[str, list[dict]], list[str]]:
-    groups: dict[str, list[dict]] = {"waiting": [], "active": [], "quiet": [], "paused": [], "shipped": []}
+    groups: dict[str, list[dict]] = {"review": [], "waiting": [], "active": [], "quiet": [], "paused": [], "shipped": []}
     missing = []
     for root in projects():
         if not root.is_dir():
@@ -199,7 +216,9 @@ def overview() -> tuple[dict[str, list[dict]], list[str]]:
         for idea in load(root):
             status, age = idea.get("status", ""), days_since(idea.get("updated", ""))
             idea["age"] = age
-            if status == "paused":
+            if review_due(idea):
+                groups["review"].append(idea)
+            elif status == "paused":
                 groups["paused"].append(idea)
             elif status == "shipped":
                 if age is not None and age <= RECENT_SHIP_DAYS:
@@ -248,6 +267,8 @@ def status_line(idea: dict, columns: int | None = None) -> str:
         count = len([q for q in re.split(r"[；;]", idea["waiting"]) if q.strip()])
         color, state = yellow, f"● 等你决定 {count} 项" if count > 1 else "● 等你决定"
         action = "打 /yishuship 查看"
+    elif idea.get("status") == "review":
+        color, state, action = cyan, "● 该回头看", "打 /yishuship 查看"
     elif idea.get("status") == "shipping":
         color, state, action = cyan, "● 准备上线", "打 /yishuship 继续"
     else:
@@ -280,7 +301,7 @@ def describe(idea: dict) -> list[str]:
 
 def print_overview() -> None:
     groups, missing = overview()
-    titles = {"waiting": "在等你决定", "active": "进行中",
+    titles = {"review": "该回头看：上线后做对了没有", "waiting": "在等你决定", "active": "进行中",
               "quiet": f"超过 {QUIET_DAYS} 天没动", "paused": "暂停中", "shipped": f"最近 {RECENT_SHIP_DAYS} 天上线"}
     print("[yishuship] 所有想法")
     if not any(groups.values()):
@@ -321,7 +342,10 @@ def main(argv: list[str]) -> int:
     elif argv[:1] == ["--current"] and len(argv) == 2:
         print(json.dumps(current(argv[1]), ensure_ascii=False))
     elif argv[:1] == ["--status-line"] and len(argv) == 2:
-        idea = current(argv[1])
+        idea, root = current(argv[1]), project_root(argv[1])
+        due = [i for i in load(root) if review_due(i)] if root else []
+        if due and not (idea and idea.get("waiting")):
+            idea = dict(due[0], status="review")
         columns = os.environ.get("COLUMNS", "")
         if idea:
             print(status_line(idea, int(columns) if columns.isdigit() else None))

@@ -50,7 +50,8 @@ one idea one step and leaves the progress file true.
 7. **First green is not done.** Run it on real data, not only your fixtures;
    where possible check with something independent of the implementation.
 8. **Verify in the running product**, before and after, using the index entry
-   for that kind of product. Show images with the evidence script.
+   for that kind of product, then run the independent check in
+   `../shared/done.md`. Show images with the evidence script.
 9. **Report** per `../shared/done.md`, then update the progress file: slice
    done with evidence, next slice, `waiting`, `updated`.
 
@@ -64,11 +65,14 @@ If `ship_bar` is empty, ask what "users can use it" means for this project
 (installable build, public URL, store listing, a friend using it). Do what the
 bar requires, with the index entry for releases, then verify from a new user's
 side: install the built artifact or open the public URL fresh. Only then
-`status: shipped`.
+`status: shipped`, with `shipped` today and `review_on` a week later unless
+the user wants another day: that is when `/yishuship` asks whether it worked.
 
 ## Hard Rules
 
 - One slice per run unless the user says to keep going.
+- When the work reaches the idea's `appetite`, stop and ask whether it is
+  still worth more; never extend it silently.
 - Never widen scope silently. Anything found outside the slice goes to 遗留 or
   becomes its own idea.
 - Never touch, stash, or move the user's uncommitted work.

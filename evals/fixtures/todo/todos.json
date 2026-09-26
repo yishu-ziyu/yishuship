@@ -1,0 +1,6 @@
+[
+  {"text": "买牛奶", "due": "2026-10-05", "tag": "家里", "done": false},
+  {"text": "交房租", "due": "2026-10-01", "tag": "家里", "done": false},
+  {"text": "读完《置身事内》", "due": null, "tag": "学习", "done": false},
+  {"text": "报税", "due": "2026-09-30", "tag": "工作", "done": false}
+]
