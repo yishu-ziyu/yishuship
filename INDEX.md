@@ -7,9 +7,14 @@ map to it.
 Open an entry only when its moment comes. Most slices need one or two entries,
 some need none; a small, obvious change does not earn a whole method.
 
-Personal entries live in `~/.yishuship/INDEX.md`: same format, paths on this
-machine, never committed. Read both. In the done report, say which entries
-this slice used (or none).
+Three levels, same format, all read:
+
+- this file: general, true for anyone and any project;
+- `~/.yishuship/INDEX.md`: the user's own, by kind of work, across projects;
+- `<project>/.ship/INDEX.md`: facts about one project only.
+
+yishuship itself never names a specific project. In the done report, say which
+entries this slice used and what the index lacked, and at which level.
 
 `<yishuship>` below means the plugin root, two levels above any skill folder.
 

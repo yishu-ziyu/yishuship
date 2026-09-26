@@ -40,11 +40,13 @@ one idea one step and leaves the progress file true.
    Decide everything inside the box yourself.
 5. **Read the project's own rules first** (AGENTS.md, CLAUDE.md, CONTEXT.md,
    ADRs) and follow them. New domain terms go into CONTEXT.md if it exists.
-6. **Build it the way this slice calls for.** Open the entries of
-   `<skill-dir>/../../INDEX.md` and `~/.yishuship/INDEX.md` whose moment has
-   come (writing code, designing a screen, a bug, an AI capability) and follow
-   them. Those decide the method, including whether this slice is worth
-   test-first; do not import a whole method for a small, obvious change.
+6. **Build it the way this slice calls for.** Match the slice against the
+   index rows at three levels: `<skill-dir>/../../INDEX.md` (general),
+   `~/.yishuship/INDEX.md` (the user's, cross-project), and
+   `<project>/.ship/INDEX.md` (this project only). Before building, tell the
+   user in one line which rows matched and what each gave, or that none did.
+   The matched entries decide the method, including whether test-first is
+   worth it; a small, obvious change does not earn a whole method.
 7. **First green is not done.** Run it on real data, not only your fixtures;
    where possible check with something independent of the implementation.
 8. **Verify in the running product**, before and after, using the index entry
@@ -53,8 +55,7 @@ one idea one step and leaves the progress file true.
    done with evidence, next slice, `waiting`, `updated`.
 
 Commits and pushes happen only after the user says so for this slice; ask
-together with the next decision. Commit messages: `<type>: <description>`,
-no AI co-author lines.
+together with the next decision.
 
 ## Shipping
 

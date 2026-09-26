@@ -47,5 +47,5 @@ use space and direction:
 
 - Say what a thing does. Never invent a name for a mechanism (no "卡片",
   "账本", "闸门"); the user should not have to translate before judging.
-- No engineering jargon in the question itself; put file paths and commands in
-  a short evidence section after it, only if they change the decision.
+- No engineering jargon in the question; paths and commands go after it, and
+  only if they change the decision.

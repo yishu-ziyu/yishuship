@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Check that every path and skill named in the yishuship index still exists.
 
-Reads <repo>/INDEX.md and ~/.yishuship/INDEX.md (if present). Each table row's
-last cell names targets in backticks:
+Reads three levels when present: <repo>/INDEX.md (general),
+~/.yishuship/INDEX.md (personal), and <project>/.ship/INDEX.md for the project
+containing DIR (default: the current directory). Each table row's last cell
+names targets in backticks:
   `skill:<name>`     an installed skill (Claude Code or ~/.agents)
   `~/...` or `/...`  a file or folder on this machine
-  `docs/...`         a path inside this repository
+  anything else      relative to the index's own root (repo or project)
 
 Exit 0 when everything resolves, 1 otherwise (missing targets are listed).
 """
@@ -16,7 +18,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-INDEXES = [REPO / "INDEX.md", Path.home() / ".yishuship" / "INDEX.md"]
+PERSONAL = Path.home() / ".yishuship" / "INDEX.md"
 SKILL_DIRS = [Path.home() / ".claude" / "skills", Path.home() / ".agents" / "skills"]
 PLUGIN_CACHE = Path.home() / ".claude" / "plugins" / "cache"
 TARGET = re.compile(r"`([^`]+)`")
@@ -34,7 +36,17 @@ def targets(index: Path) -> list[str]:
     return found
 
 
-def exists(target: str) -> bool:
+def indexes(directory: str | None = None) -> list[tuple[Path, Path]]:
+    """(index file, root that relative paths resolve against)."""
+    found = [(REPO / "INDEX.md", REPO), (PERSONAL, Path.home())]
+    here = Path(directory or ".").expanduser().resolve()
+    project = next((r for r in (here, *here.parents) if (r / ".ship" / "INDEX.md").is_file()), None)
+    if project:
+        found.append((project / ".ship" / "INDEX.md", project))
+    return [(f, root) for f, root in found if f.is_file()]
+
+
+def exists(target: str, root: Path = REPO) -> bool:
     if target.startswith("skill:"):
         name = target.removeprefix("skill:")
         if any((d / name / "SKILL.md").is_file() for d in SKILL_DIRS):
@@ -42,21 +54,18 @@ def exists(target: str) -> bool:
         return any(PLUGIN_CACHE.glob(f"*/*/*/skills/{name}/SKILL.md"))
     if target.startswith(("~", "/")):
         return Path(target).expanduser().exists()
-    return (REPO / target).exists()
+    return (root / target).exists()
 
 
-def problems() -> list[str]:
-    missing = []
-    for index in INDEXES:
-        if not index.is_file():
-            continue
-        missing += [f"{index}: {t}" for t in targets(index) if not exists(t)]
-    return missing
+def problems(directory: str | None = None) -> list[str]:
+    return [f"{index}: {t}" for index, root in indexes(directory)
+            for t in targets(index) if not exists(t, root)]
 
 
 def main() -> int:
-    missing = problems()
-    checked = [str(i) for i in INDEXES if i.is_file()]
+    directory = sys.argv[1] if len(sys.argv) > 1 else None
+    missing = problems(directory)
+    checked = [str(i) for i, _ in indexes(directory)]
     if missing:
         print("索引里有路径失效：")
         print("\n".join(f"  {m}" for m in missing))

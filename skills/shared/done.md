@@ -13,8 +13,10 @@
 - **Commands actually run** this session back every "passes" claim. If evidence
   is reused from earlier, say where it came from.
 - **Findings outside the slice** are listed, not fixed.
-- **Which index entries this slice used**, one line (`参考了：…` or `参考了：无`),
-  so the user can see whether the right guidance was opened.
+- **Which index entries this slice used** (`参考了：…`) and **what the index
+  lacked** (`索引缺了：…`), naming the level a new row belongs to: a kind of
+  work goes in `~/.yishuship/INDEX.md`, a fact about this project only in
+  `<project>/.ship/INDEX.md`. Add a row only when the user says so.
 
 ## Showing images
 
@@ -53,6 +55,7 @@ prints. Keep a copy of the images under `.ship/evidence/<date>-<slug>/`.
   <item> · <why>
 
 参考了：<index entries used, or 无>
+索引缺了：<gap and its level, or 无>
 ```
 
 Then the next decision, if any, in the asking layout.
