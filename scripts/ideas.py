@@ -88,7 +88,7 @@ def current(directory: str) -> dict | None:
 
 
 def overview() -> tuple[dict[str, list[dict]], list[str]]:
-    groups: dict[str, list[dict]] = {"waiting": [], "active": [], "quiet": [], "shipped": []}
+    groups: dict[str, list[dict]] = {"waiting": [], "active": [], "quiet": [], "paused": [], "shipped": []}
     missing = []
     for root in projects():
         if not root.is_dir():
@@ -97,7 +97,9 @@ def overview() -> tuple[dict[str, list[dict]], list[str]]:
         for idea in load(root):
             status, age = idea.get("status", ""), days_since(idea.get("updated", ""))
             idea["age"] = age
-            if status == "shipped":
+            if status == "paused":
+                groups["paused"].append(idea)
+            elif status == "shipped":
                 if age is not None and age <= RECENT_SHIP_DAYS:
                     groups["shipped"].append(idea)
             elif status in ACTIVE and idea.get("waiting"):
@@ -112,7 +114,7 @@ def overview() -> tuple[dict[str, list[dict]], list[str]]:
 
 
 STEP = {"shaping": "想法成形中", "building": "在做", "waiting": "等你决定",
-        "shipping": "准备上线", "shipped": "已上线"}
+        "shipping": "准备上线", "paused": "暂停中", "shipped": "已上线"}
 
 
 def describe(idea: dict) -> list[str]:
@@ -128,7 +130,7 @@ def describe(idea: dict) -> list[str]:
 def print_overview() -> None:
     groups, missing = overview()
     titles = {"waiting": "在等你决定", "active": "进行中",
-              "quiet": f"超过 {QUIET_DAYS} 天没动", "shipped": f"最近 {RECENT_SHIP_DAYS} 天上线"}
+              "quiet": f"超过 {QUIET_DAYS} 天没动", "paused": "暂停中", "shipped": f"最近 {RECENT_SHIP_DAYS} 天上线"}
     print("[yishuship] 所有想法")
     if not any(groups.values()):
         print("\n  还没有记录中的想法。用 /yishuship:idea 开始一个。")
