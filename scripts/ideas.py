@@ -143,6 +143,19 @@ def print_overview() -> None:
         print("\n\n找不到目录（可能移动过）")
         for path in missing:
             print(f"  {path}")
+    broken = index_problems()
+    if broken:
+        print("\n\n索引里有路径失效（修正 INDEX.md 里的那一行）")
+        for item in broken:
+            print(f"  {item}")
+
+
+def index_problems() -> list[str]:
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("check_index", Path(__file__).with_name("check-index.py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.problems()
 
 
 def main(argv: list[str]) -> int:

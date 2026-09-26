@@ -21,7 +21,7 @@ the user's real machine, often in use while you work.
   global key events without a pid). With Stage Manager the front app can
   change under you and input lands somewhere unknown.
 - Before any step that brings a window forward, check the user is not using
-  the machine: `bash <skill-dir>/../../scripts/user-idle.sh` prints idle
+  the machine: `bash <yishuship>/scripts/user-idle.sh` prints idle
   seconds; below 20, do not take the foreground. If the frontmost app changes
   mid-run, stop at once, say so, and hand the check to the user.
 - After foreground work, give the user's app back the foreground.

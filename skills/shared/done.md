@@ -13,6 +13,8 @@
 - **Commands actually run** this session back every "passes" claim. If evidence
   is reused from earlier, say where it came from.
 - **Findings outside the slice** are listed, not fixed.
+- **Which index entries this slice used**, one line (`参考了：…` or `参考了：无`),
+  so the user can see whether the right guidance was opened.
 
 ## Showing images
 
@@ -49,6 +51,8 @@ prints. Keep a copy of the images under `.ship/evidence/<date>-<slug>/`.
 
 没验证到的
   <item> · <why>
+
+参考了：<index entries used, or 无>
 ```
 
 Then the next decision, if any, in the asking layout.

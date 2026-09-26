@@ -48,7 +48,8 @@ to lose.
 ## Hard Rules
 
 - Technical design only as deep as it changes a user decision; the rest
-  belongs to `/yishuship:next` or Waza `/think` when a slice needs a plan.
+  belongs to `/yishuship:next`, or to the index entry for choosing approaches
+  (`<skill-dir>/../../INDEX.md`) when a slice needs a plan.
 - No placeholders ("待定", "later") in the behaviors or the first slice. If
   something cannot be settled, it is a question for the user.
 - One idea per progress file. A second idea surfacing in the conversation gets

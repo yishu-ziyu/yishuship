@@ -12,9 +12,13 @@ and do; the agent owns everything inside the box. Three user-invoked skills:
 - `skills/next` — move the current idea one verified step (slice, decision, ship).
 - `skills/ideas` — list every idea across projects.
 
-`skills/shared/*.md` hold the rules all three follow: when and how to stop and
-ask, what "done" must show, the progress file, verifying in the running app.
-`scripts/` hold everything deterministic.
+`skills/shared/*.md` hold the management rules all three follow: when and how
+to stop and ask, what "done" must show, the progress file. `INDEX.md` maps each
+moment of the work (writing code, designing, a bug, a release, verifying a
+running app) to where the method lives; `~/.yishuship/INDEX.md` holds the same
+kind of rows for paths on the user's machine. `docs/` holds yishuship's own
+method notes that the index points at. `scripts/` hold everything
+deterministic.
 
 Engineering habits (debugging, planning, review, reading) come from Waza
 (`hunt`, `think`, `check`, `read`) installed separately; do not re-implement
@@ -22,6 +26,9 @@ them here, and refer to them only by skill name.
 
 ## Rules for changing it
 
+- Skills hold management only. How a kind of work is done (test-first,
+  design rules, release steps, app verification) goes behind an INDEX row,
+  never into a skill. A row names its moment ("when ..."), not its topic.
 - Give the model the target, not the path: each SKILL.md starts with an
   outcome contract; keep process to what changes behavior.
 - Budget: all `skills/**/*.md` together stay under 400 lines. Adding a line
@@ -38,8 +45,9 @@ them here, and refer to them only by skill name.
 ## Checking a change
 
 ```bash
-python3 -m py_compile scripts/ideas.py
+python3 -m py_compile scripts/ideas.py scripts/check-index.py
 bash -n scripts/*.sh
+python3 scripts/check-index.py              # every index row still resolves
 python3 scripts/ideas.py                    # overview renders
 echo '{"cwd":"'"$PWD"'"}' | bash scripts/statusline.sh   # no line unless an idea is active here
 wc -l skills/*/*.md | tail -1      # under 400
