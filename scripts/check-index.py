@@ -7,6 +7,7 @@ containing DIR (default: the current directory). Each table row's last cell
 names targets in backticks:
   `skill:<name>`     an installed skill (Claude Code or ~/.agents)
   `~/...` or `/...`  a file or folder on this machine
+  `notion:<page>`    a Notion page; cannot be checked from here, listed as unchecked
   anything else      relative to the index's own root (repo or project)
 
 Exit 0 when everything resolves, 1 otherwise (missing targets are listed).
@@ -47,6 +48,8 @@ def indexes(directory: str | None = None) -> list[tuple[Path, Path]]:
 
 
 def exists(target: str, root: Path = REPO) -> bool:
+    if target.startswith("notion:"):
+        return True
     if target.startswith("skill:"):
         name = target.removeprefix("skill:")
         if any((d / name / "SKILL.md").is_file() for d in SKILL_DIRS):
@@ -70,7 +73,10 @@ def main() -> int:
         print("索引里有路径失效：")
         print("\n".join(f"  {m}" for m in missing))
         return 1
+    unchecked = [t for index, _ in indexes(directory) for t in targets(index) if t.startswith("notion:")]
     print(f"索引路径全部有效（{', '.join(checked)}）")
+    if unchecked:
+        print(f"未检查（Notion，需用到时确认）：{', '.join(unchecked)}")
     return 0
 
 

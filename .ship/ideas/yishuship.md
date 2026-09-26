@@ -1,8 +1,8 @@
 ---
 idea: 一个想法从说出口到用户能用上，全程跟住
 project: yishuship
-status: waiting
-waiting: Notion 设计笔记页面的准确名字；三处未提交的改动要不要提交
+status: building
+waiting:
 slice: 切片 7：索引能否拿到可用的东西（第一轮已做完）
 ship_bar: 在自己的真实项目上连续用两周，每个想法都能从 idea 走到上线，中途不需要手动绕开它
 updated: 2026-09-26
@@ -29,6 +29,8 @@ updated: 2026-09-26
 - 2026-09-26 个人索引只留一处：~/.yishuship/INDEX.md，全局 CLAUDE.md 只留一句指向 · 理由：用户会主动打命令，希望索引归在 yishuship 下
 - 2026-09-26 只记一个命令 /yishuship；三个命令保留但不用记；多个想法时接最近动过的 · 理由：用户只想打一个斜杠
 - 2026-09-26 索引分三层：通用 / 个人跨项目 / 项目自己；yishuship 本体不写任何具体项目 · 理由：通用性高，按项目适配
+- 2026-09-26 设计原则直接去已连接的 Notion 搜；原生 Mac/iOS 界面指向 Notion "Apple Design"（135 篇，含 iOS & macOS 设计） · 理由：agent 已接 Notion，不必写死链接；这份文档补上了原生界面的缺口
+- 2026-09-26 三处改动：组件库只本地提交、vibereader 推送（公开，用户知情）、uni-rag 不推送 · 理由：只动自己的文件
 - 2026-09-26 易变的 API 用法不进索引，开工时查当时的官方文档 · 理由：会随版本变
 - 2026-09-26 底栏：状态在前并着色，不放问题原文 · 理由：原来一排灰字看不出重点
 - 2026-09-26 索引分仓库版与本机版 · 理由：仓库公开，本机路径不外露
@@ -45,30 +47,12 @@ updated: 2026-09-26
 8. [next] 接入 Codex
 
 ## 等你决定
-```
-①  设计那一条指向的 Notion 页面
-   ├─ A  你告诉我准确的页面名或链接         ◀ 推荐
-   │     我核实后写进索引，并让检查脚本记住它
-   └─ B  先从索引里去掉这个 Notion 页面
-         只留本地的设计笔记
-
-②  三处没提交的改动
-   │  AI 组件库：新组件 + 索引里两处路径修正
-   │  vibereader：项目清单 .ship/INDEX.md、两个想法的进度文件、证据截图
-   │  uni-rag 独立仓库：规则文件（已在本地提交，未推送）
-   ├─ A  组件库和 vibereader 各自只提交我改的文件；  ◀ 推荐
-   │     vibereader 推送，组件库只留本地
-   └─ B  都先不提交
-
-回复示例：1A 2A（选 1A 的话，把页面名或链接写在后面）
-```
 
 ## 下一步
-等用户给出 Notion 设计笔记的准确页面；之后每做一块，按"命中了哪几条 / 索引缺了什么"继续检验索引。
+索引第一轮检验收尾。之后每做一块，按"命中了哪几条 / 索引缺了什么"继续检验；下一件可做：切片 8 接入 Codex，或回到 vibereader 交互体验那个想法。
 
 ## 遗留
-- Notion "Will's S Design Note" 搜不到（全局规则原样搬来，未核实）
-- 原生 App 界面没有任何本地参考；vibereader-macos 没有 DESIGN.md
+- vibereader-macos 没有 DESIGN.md（原生界面参考已指向 Notion "Apple Design"）
 - 原生客户端读 SSE 未验证（sse-streaming-cors 组件已标注）
 - 旧版 .ship/tasks 只读保留：red-herring-and-gun 23、tianshu-integrations 6、uni-rag 6、asset-agent 3、chrome-md-editor 2、vibereader 1
 - uni-rag 与 vibereader 两个仓库里改好的规则文件尚未提交
