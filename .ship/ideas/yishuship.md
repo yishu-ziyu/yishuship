@@ -1,9 +1,9 @@
 ---
-idea: yishuship：一个想法从说出口到用户能用上，全程跟住
+idea: 一个想法从说出口到用户能用上，全程跟住
 project: yishuship
-status: waiting
-waiting: 给一个真实的新想法，用 /yishuship:idea 从零走一遍
-slice: 切片 5：用真实新想法走一遍 idea
+status: building
+waiting:
+slice: 切片 6：只打一个 /yishuship
 ship_bar: 在自己的真实项目上连续用两周，每个想法都能从 idea 走到上线，中途不需要手动绕开它
 updated: 2026-09-26
 ---
@@ -26,6 +26,9 @@ updated: 2026-09-26
 - 2026-09-26 上线标准（用户确认）：真实项目连续用两周，每个想法都能从 idea 走到上线 · 理由：它是给自己用的工作方式
 - 2026-09-26 只放管理，做事方式按"什么时候"写进索引 · 理由：不是每一块都值得整套方法；索引按时机写才会被翻开
 - 2026-09-26 uni-rag 规则只留三条命令说明，只在用户输入命令时用；Ponytail 段整段删去 · 理由：插件已不在本机
+- 2026-09-26 个人索引只留一处：~/.yishuship/INDEX.md，全局 CLAUDE.md 只留一句指向 · 理由：用户会主动打命令，希望索引归在 yishuship 下
+- 2026-09-26 只记一个命令 /yishuship；三个命令保留但不用记；多个想法时接最近动过的 · 理由：用户只想打一个斜杠
+- 2026-09-26 底栏：状态在前并着色，不放问题原文 · 理由：原来一排灰字看不出重点
 - 2026-09-26 索引分仓库版与本机版 · 理由：仓库公开，本机路径不外露
 - 2026-09-26 v3 分支先用，顺手后再合并 main · 理由：留退路
 
@@ -34,11 +37,13 @@ updated: 2026-09-26
 2. [done] 暂停的想法不再从列表消失 · 证据：87c5a49
 3. [done] 改成"管理层 + 向外索引"：INDEX.md、~/.yishuship/INDEX.md、check-index.py；next 不再写死 TDD · 证据：64beb43、3.1.1（提问前必须先读规则），/yishuship:next 只读试跑两次
 4. [done] 清理旧版残留：uni-rag 两份 CLAUDE.md 与入门文档改为新命令，删去失效的 Ponytail 段 · 证据：同一问题改前答"pm-intake → design → dev"，改后答"/yishuship:idea"
-5. [now] 用一个真实新想法走一遍 /yishuship:idea
-6. [next] 接入 Codex
+5. [done] 用真实新想法走 idea："让 VibeReader 的交互体验更好"，从一句话走到提问 · 证据：vibereader/.ship/ideas/qa-interaction.md（插件中途安装，本会话由人工按 skill 执行）
+6. [now] 只打一个 /yishuship：按进度文件自动判断下一步；三个命令留作内部步骤；底栏改成状态在前
+7. [next] 检验索引能否拿到真正可用的结果（顺着每条索引走到底）
+8. [next] 接入 Codex
 
 ## 下一步
-切片 5：用户给一个真实的新想法，用 /yishuship:idea 从一句话开始走，检验"从 0 开始"这条路。
+切片 6：写完 /yishuship 入口并真实试跑；然后切片 7，逐条走索引到底，判断拿到的内容能不能直接用。
 
 ## 遗留
 - 旧版 .ship/tasks 只读保留：red-herring-and-gun 23、tianshu-integrations 6、uni-rag 6、asset-agent 3、chrome-md-editor 2、vibereader 1

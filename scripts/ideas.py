@@ -9,11 +9,13 @@ Each project keeps one progress file per idea at .ship/ideas/<slug>.md.
   ideas.py --register DIR  add a project (idempotent)
   ideas.py --current DIR   the active idea for DIR, as JSON
   ideas.py --status-line DIR   one line for the terminal status line (empty if none)
+  ideas.py --route DIR     where /yishuship should go from DIR, as JSON
 """
 from __future__ import annotations
 
 import datetime as dt
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -87,6 +89,36 @@ def current(directory: str) -> dict | None:
     return None
 
 
+def route(directory: str) -> dict:
+    """What /yishuship should do from DIRECTORY, decided from disk alone.
+
+    step: "ask"      the current idea waits on the user
+          "continue" the current idea has work to do
+          "overview" no idea in progress here; show every idea
+    Free text the user typed is judged by the skill, not here.
+    """
+    here = Path(directory).expanduser().resolve()
+    root = next((r for r in (here, *here.parents) if (r / ".ship" / "ideas").is_dir()), None)
+    ideas = load(root) if root else []
+    active = sorted((i for i in ideas if i.get("status") in ACTIVE),
+                    key=lambda i: (i.get("updated", ""), i["file"]), reverse=True)
+    current_idea = active[0] if active else None
+    if current_idea is None:
+        step = "overview"
+    elif current_idea.get("waiting"):
+        step = "ask"
+    else:
+        step = "continue"
+    brief = lambda i: {k: i.get(k, "") for k in ("idea", "status", "waiting", "slice", "file", "updated")}
+    return {
+        "step": step,
+        "project_root": str(root) if root else None,
+        "current": brief(current_idea) if current_idea else None,
+        "other_active": [brief(i) for i in active[1:]],
+        "paused": [brief(i) for i in ideas if i.get("status") == "paused"],
+    }
+
+
 def overview() -> tuple[dict[str, list[dict]], list[str]]:
     groups: dict[str, list[dict]] = {"waiting": [], "active": [], "quiet": [], "paused": [], "shipped": []}
     missing = []
@@ -115,6 +147,25 @@ def overview() -> tuple[dict[str, list[dict]], list[str]]:
 
 STEP = {"shaping": "想法成形中", "building": "在做", "waiting": "等你决定",
         "shipping": "准备上线", "paused": "暂停中", "shipped": "已上线"}
+
+
+def clip(text: str, width: int) -> str:
+    return text if len(text) <= width else text[: width - 1] + "…"
+
+
+def status_line(idea: dict) -> str:
+    """State first and in color, then which idea, then what to type."""
+    yellow, green, cyan, dim, reset = "\033[1;33m", "\033[32m", "\033[36m", "\033[2m", "\033[0m"
+    name = f"{idea.get('project', '')} · {clip(idea['idea'], 16)}"
+    if idea.get("waiting"):
+        count = len([q for q in re.split(r"[；;]", idea["waiting"]) if q.strip()])
+        state = f"{yellow}● 等你决定 {count} 项{reset}" if count > 1 else f"{yellow}● 等你决定{reset}"
+        action = "打 /yishuship 查看"
+    elif idea.get("status") == "shipping":
+        state, action = f"{cyan}● 准备上线{reset}", "打 /yishuship 继续"
+    else:
+        state, action = f"{green}● 在做{reset}", clip(idea.get("slice", ""), 14) or "打 /yishuship 继续"
+    return f"{state}  {name}  {dim}{action}{reset}"
 
 
 def describe(idea: dict) -> list[str]:
@@ -166,9 +217,9 @@ def main(argv: list[str]) -> int:
     elif argv[:1] == ["--status-line"] and len(argv) == 2:
         idea = current(argv[1])
         if idea:
-            step = idea.get("slice") or STEP.get(idea.get("status", ""), "")
-            waiting = f"等你：{idea['waiting']}" if idea.get("waiting") else "等你：无"
-            print(f"\033[2myishuship ▸ {idea['idea']} · {step} · {waiting}\033[0m")
+            print(status_line(idea))
+    elif argv[:1] == ["--route"] and len(argv) == 2:
+        print(json.dumps(route(argv[1]), ensure_ascii=False, indent=2))
     elif argv == ["--json"]:
         groups, missing = overview()
         print(json.dumps({"groups": groups, "missing": missing}, ensure_ascii=False, indent=2))

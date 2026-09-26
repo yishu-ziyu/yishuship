@@ -6,7 +6,9 @@
 
 A Claude Code plugin that follows one product idea from a sentence to users
 being able to use it. The user is a product person: they own what users see
-and do; the agent owns everything inside the box. Three user-invoked skills:
+and do; the agent owns everything inside the box. The user types one command,
+`/yishuship`: `skills/yishuship` reads `scripts/ideas.py --route` and hands off
+to one of three steps (also invocable directly):
 
 - `skills/idea` — shape a new idea into behaviors, a first slice, a decision.
 - `skills/next` — move the current idea one verified step (slice, decision, ship).
