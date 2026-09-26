@@ -62,7 +62,7 @@ The asking layout, with at minimum:
 
 ```
 ①  做不做
-   ├─ A  做，先做第一刀：<slice>      ◀ 推荐
+   ├─ A  做，先做第一块：<slice>      ◀ 推荐
    ├─ B  缩小：<smaller version>
    └─ C  不做：<reason>
 ```

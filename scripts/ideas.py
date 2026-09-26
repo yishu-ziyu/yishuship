@@ -17,8 +17,10 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import os
 import re
 import sys
+import unicodedata
 from pathlib import Path
 
 REGISTRY = Path.home() / ".yishuship" / "projects"
@@ -129,7 +131,7 @@ def refresh(path: str) -> None:
         state = f"在等你决定 {count} 项" if count > 1 else "在等你决定"
     else:
         state = STEP.get(meta.get("status", ""), meta.get("status", ""))
-    lines = [SUMMARY_START, "> [!summary] 走到哪了", f"> **● {state}**"]
+    lines = [SUMMARY_START, "> [!NOTE]", f"> **走到哪了 · ● {state}**"]
     if meta.get("slice"):
         lines.append(f"> {meta['slice']}")
     if meta.get("waiting"):
@@ -217,23 +219,53 @@ STEP = {"shaping": "想法成形中", "building": "在做", "waiting": "等你�
         "shipping": "准备上线", "paused": "暂停中", "shipped": "已上线"}
 
 
-def clip(text: str, width: int) -> str:
-    return text if len(text) <= width else text[: width - 1] + "…"
+def width(text: str) -> int:
+    """Columns the text takes in a terminal: CJK and full-width characters take two."""
+    return sum(2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in text)
 
 
-def status_line(idea: dict) -> str:
-    """State first and in color, then which idea, then what to type."""
+def clip(text: str, limit: int) -> str:
+    if width(text) <= limit:
+        return text
+    kept = ""
+    for char in text:
+        if width(kept + char) > limit - 1:
+            break
+        kept += char
+    return kept + "…"
+
+
+def status_line(idea: dict, columns: int | None = None) -> str:
+    """State first and in color, then which idea, then what to type.
+
+    Uses the idea's short name. When COLUMNS says the terminal is too narrow,
+    the tail goes first (next step, then the name); the state is never cut.
+    """
     yellow, green, cyan, dim, reset = "\033[1;33m", "\033[32m", "\033[36m", "\033[2m", "\033[0m"
-    name = f"{idea.get('project', '')} · {clip(idea['idea'], 16)}"
+    name = f"{idea.get('project', '')} · {idea.get('short') or idea['idea']}"
+    hint = True  # a command hint is shown whole or not at all; a slice may be clipped
     if idea.get("waiting"):
         count = len([q for q in re.split(r"[；;]", idea["waiting"]) if q.strip()])
-        state = f"{yellow}● 等你决定 {count} 项{reset}" if count > 1 else f"{yellow}● 等你决定{reset}"
+        color, state = yellow, f"● 等你决定 {count} 项" if count > 1 else "● 等你决定"
         action = "打 /yishuship 查看"
     elif idea.get("status") == "shipping":
-        state, action = f"{cyan}● 准备上线{reset}", "打 /yishuship 继续"
+        color, state, action = cyan, "● 准备上线", "打 /yishuship 继续"
     else:
-        state, action = f"{green}● 在做{reset}", clip(idea.get("slice", ""), 14) or "打 /yishuship 继续"
-    return f"{state}  {name}  {dim}{action}{reset}"
+        color, state = green, "● 在做"
+        action, hint = idea.get("slice") or "打 /yishuship 继续", not idea.get("slice")
+    if columns:
+        room = columns - 2 - width(state) - 2  # 2 for a margin; the state always fits whole
+        if width(name) + 2 + width(action) > room:
+            spare = room - width(name) - 2
+            action = clip(action, spare) if spare >= 8 and not hint else ""
+        if width(name) > room:
+            name = clip(name, room) if room >= 6 else ""
+    line = f"{color}{state}{reset}"
+    if name:
+        line += f"  {name}"
+    if action:
+        line += f"  {dim}{action}{reset}"
+    return line
 
 
 def describe(idea: dict) -> list[str]:
@@ -252,7 +284,7 @@ def print_overview() -> None:
               "quiet": f"超过 {QUIET_DAYS} 天没动", "paused": "暂停中", "shipped": f"最近 {RECENT_SHIP_DAYS} 天上线"}
     print("[yishuship] 所有想法")
     if not any(groups.values()):
-        print("\n  还没有记录中的想法。用 /yishuship:idea 开始一个。")
+        print("\n  还没有记录中的想法。打 /yishuship 加一句你的想法，开始第一个。")
     for key, title in titles.items():
         if groups[key]:
             print(f"\n\n{title}")
@@ -290,8 +322,9 @@ def main(argv: list[str]) -> int:
         print(json.dumps(current(argv[1]), ensure_ascii=False))
     elif argv[:1] == ["--status-line"] and len(argv) == 2:
         idea = current(argv[1])
+        columns = os.environ.get("COLUMNS", "")
         if idea:
-            print(status_line(idea))
+            print(status_line(idea, int(columns) if columns.isdigit() else None))
     elif argv[:1] == ["--route"] and len(argv) == 2:
         print(json.dumps(route(argv[1]), ensure_ascii=False, indent=2))
     elif argv == ["--json"]:

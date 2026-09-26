@@ -1,18 +1,20 @@
 # Progress file template
 
-Human first: the user reads these in Obsidian. What they want after a week
-away (where it stands, what waits on them) comes first; detail comes later.
-The front matter serves both the scripts and Obsidian.
+Human first: the user reads these directly, in the repository, an editor, or
+Obsidian if they linked it. What they want after a week away (where it stands,
+what waits on them) comes first; detail comes later. The front matter serves
+both the scripts and Markdown viewers.
 
 ```markdown
 ---
 title: <the idea, in the user's words>
+short: <at most 8 characters; the status line shows this>
 date: <YYYY-MM-DD the idea started>
 tags: [yishuship, <project>]
 project: <project name>
 status: shaping | building | waiting | shipping | shipped | paused | dropped
 waiting: <the open questions in one short line, separated by ；, or empty>
-slice: <current slice in one line, or empty>
+slice: <current slice, short: the status line shows it; or empty>
 next: <exactly one next step in one line>
 ship_bar: <what "users can use it" means here, or empty until asked>
 updated: <YYYY-MM-DD>
@@ -49,5 +51,5 @@ updated: <YYYY-MM-DD>
 ```
 
 Evidence images live in `<project>/.ship/evidence/`; link them relatively
-(`../evidence/...`) so they render in the repository and in Obsidian, where
-`ideas/` and `evidence/` are linked side by side under the same names.
+(`../evidence/...`) so they render in the repository, and in Obsidian when
+linked, where `ideas/` and `evidence/` sit side by side under the same names.

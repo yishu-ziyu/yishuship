@@ -2,62 +2,139 @@
 
 一个想法，从说出口到用户能用上，全程跟住，不丢。
 
-你管用户能看到什么、能做什么；它管盒子里面的代码、测试和质量。需要你决定的时候，它停下来问你；说做完的时候，它拿出改之前和改之后的证据。
+你管用户能看到什么、能做什么；它管盒子里面的代码、测试和质量。需要你决定的时候，它停下来问你；说做完的时候，它拿出改之前和改之后的证据。关掉会话、隔一周再来，它从上次停下的地方接着做。
+
+这是一个 [Claude Code](https://code.claude.com) 插件，目前只在 macOS 上用过。
+
+## 3 分钟上手
+
+需要：Claude Code、git、python3。
+
+```bash
+git clone https://github.com/yishu-ziyu/yishuship.git
+bash yishuship/scripts/install.sh
+```
+
+安装脚本做三件事，重复运行也没关系：
+
+1. 装好插件。
+2. 在 Claude Code 底部加一行想法的状态。你原来的状态行照常显示；改 `~/.claude/settings.json` 之前先在旁边存一份备份。
+3. 问你要不要在 Obsidian 里看进度，直接回车就跳过。
+
+然后重开 Claude Code，进到你的项目里，说出你的想法：
+
+```
+/yishuship 点问答里的引用，能直接跳到原文那句话并高亮
+```
+
+## 用起来是什么样
+
+下面根据一次真实使用改写，省掉了中间的细节。
+
+**1. 你说想法，它先问清楚。** 每轮最多三个问题，每个都带推荐答案。然后写下用户能做什么、会看到什么，切出能单独用的最小第一块，停下来问你：
+
+```
+[yishuship] 需要你决定
+
+
+①  做不做
+   │
+   ├─ A  做，先做第一块：点引用高亮原句   ◀ 推荐
+   │     只改阅读器，问答服务不动
+   │
+   └─ B  缩小：只跳到那一页，不高亮
+         今天能完成，但还得自己在整页里找
+
+
+②  原文和引用对不上时
+   │
+   ├─ A  找最像的一句；太不像就只跳页     ◀ 推荐
+   │     多数时候能亮，不会亮错地方
+   │
+   └─ B  对不上就不高亮
+
+
+回复示例：1A 2A
+```
+
+**2. 你回一句，它接着做。**
+
+```
+/yishuship 1A 2A
+```
+
+**3. 做完一块，它拿证据给你看。** 在真实运行的 App 里点一遍，改之前和改之后的截图并排放在终端旁边的页面里。每条行为一行证据，没验证到的单独列出，最后问你要不要提交、下一块做什么。
+
+**4. 过几天回来，什么都不用记。** 进到项目里打 `/yishuship`：有问题在等你，它就把上次的问题原样再问一遍；没有，就接着做。
 
 ## 只记一个命令
 
 ```
-/yishuship 一句话说你的想法    → 新想法：追问几个问题，写出用户能做什么、看到什么，等你决定
+/yishuship 一句话说你的想法    → 新想法：问几个问题，写出用户能做什么、看到什么，等你决定
 /yishuship 1A 2B              → 回答它上次的问题，然后接着往下做
 /yishuship                    → 什么都不带：接着做当前项目里最近动过的想法；
                                 有问题在等你，就再问你一遍；
                                 不在任何项目里，就列出所有想法
 ```
 
-它自己读进度文件判断下一步，你不用记步骤。想换一个想法，说一句"换成 xxx"。
-`/yishuship:idea`、`/yishuship:next`、`/yishuship:ideas` 还在，是它内部的三步，想直接指定时也能用。
-
-报错、调试、review、读网页这些不用专门记，交给 [Waza](https://github.com/tw93/Waza)：说"这个报错查一下"会触发 `/hunt`，说"帮我 review"会触发 `/check`。
-
-## 它只管什么
-
-yishuship 只放管理方式：记住每个想法、需要你决定时停下来问、做完时拿出证据。
-怎么写代码、怎么做设计、怎么发布，这些做事方式都在外面，用到时才去读。
-[INDEX.md](INDEX.md) 是这张地图，按"什么时候"写：要写代码时读哪份，要做界面时读哪份。
-你本机的路径写在 `~/.yishuship/INDEX.md`，格式一样，不进仓库。
-`scripts/check-index.py` 检查两份地图里的路径是否都还在，`/yishuship:ideas` 也会顺带报告。
+想换一个想法，说一句"换成 xxx"。说"我有个想法……"时，它也可能自己接上，不一定要打命令。
 
 ## 你会看到什么
 
-- **终端底部一行**：`● 等你决定 4 项  vibereader · 让 VibeReader 的交…  打 /yishuship 查看`。状态在最前、带颜色：黄色是在等你，绿色是在做，青色是准备上线。
-- **需要你决定时**：选项竖着排，每个写清后果，标出推荐，回一句"1A 2B"就行。
-- **做完时**：截图在终端旁边的页面里并排给你看，看完它会关掉。
-- **每个想法一个进度文件**：`<项目>/.ship/ideas/<名字>.md`，记着为什么做、定了哪些行为、做到哪、下一步。换个会话、隔一周再来，都能接上。
+**终端底部一行**，在输入框下面。只有当前项目里有进行中的想法时才出现：
 
-## 安装
+```
+● 等你决定 2 项  demo · 按日期排序  打 /yishuship 查看      黄色：在等你
+● 在做  demo · 按日期排序  第一块：列表按日期排              绿色：在做
+● 准备上线  demo · 按日期排序  打 /yishuship 继续           青色：准备上线
+```
+
+名字用的是每个想法的短名（8 个字以内）。窗口窄的时候从末尾往前省略，最前面的状态永远完整。
+
+**决定题**：像上面那样竖着排，每个选项写清后果，标出推荐。它只问你用户能看到的东西、难以撤回的事（迁移数据、换存储格式、花钱）、这一块做多大，以及提交、推送、发布前的确认。代码怎么写、测试怎么做，它自己定。
+
+**完成报告**：改之前 → 改之后，每条行为配一条证据，外加"没验证到的"。只说测试通过、编译通过，不算做完。
+
+**进度文件**：每个想法一个，放在 `<项目>/.ship/ideas/<名字>.md`。最上面是走到哪了、在等你什么，下面是进度、定过的决定和理由、截图。用任何编辑器、GitHub 或 Obsidian 都能读。建议提交进项目仓库，这样换台电脑也能接上。
+
+只需要懂四个词：
+
+| 词 | 意思 |
+|---|---|
+| 想法 | 你想让用户能做的一件事，一个想法一个进度文件 |
+| 第一块 | 最小的、能单独给人用的一段；后面的都不做，它也成立 |
+| 等你决定 | 只有你能拍板的问题；没答之前它不往下做 |
+| 上线标准 | 怎样算"用户能用上"：装进应用程序、公开网址、朋友能用……第一次上线前问你 |
+
+## 可选
+
+不装这些，上面的一切照常能用。
+
+| 装了什么 | 多了什么 | 怎么装 |
+|---|---|---|
+| [Waza](https://github.com/tw93/Waza) 的四个技能（推荐） | 查报错、出方案、review、读网页各有一套做法，它做到这一步时会用上 | `npx skills add tw93/Waza -s hunt think check read -g -y -a claude-code` |
+| Obsidian | 所有项目的进度文件集中出现在库里的一个文件夹，截图直接显示 | 重跑 `bash scripts/install.sh --obsidian <库里的文件夹>` |
+| 你自己的做事方式清单 | 比如"写 Swift 时读哪份""做界面时参考哪里"，它做到那一步会去读 | 在 `~/.yishuship/INDEX.md` 写一张表，格式照 [INDEX.md](INDEX.md) |
+| [cua-driver](https://github.com/trycua/cua) | 在真实的 Mac App 里自动点、自动截图验证 | 见其仓库 |
+| [cmux](https://cmux.com) | 截图对比开在终端侧边，而不是浏览器 | 见其网站 |
+
+## 更新和卸载
+
+更新：在仓库里 `git pull`，然后重开 Claude Code（或在会话里打 `/reload-plugins`）。
+
+卸载：
 
 ```bash
-git clone https://github.com/yishu-ziyu/yishuship.git ~/Developer/yishuship
-claude plugin marketplace add ~/Developer/yishuship
-claude plugin install yishuship@yishuship
-
-# 搭配的 Waza（只装这四个）
-npx skills add tw93/Waza -s hunt think check read -g -y -a claude-code
+claude plugin uninstall yishuship@yishuship
 ```
 
-底部状态行：把 `~/.claude/settings.json` 的 `statusLine.command` 改成
+然后在 `~/.claude/settings.json` 里去掉 `statusLine` 中 `bash '<…>/yishuship/scripts/statusline.sh'` 这一段，只留你原来的命令；或者直接用安装时留下的 `settings.json.bak-yishuship-<时间>` 还原。`~/.yishuship/` 和各项目的 `.ship/` 是你的记录，要不要删由你决定。
 
-```
-bash ~/Developer/yishuship/scripts/statusline.sh <原来的状态行命令>
-```
+## 它只管什么
 
-原来的那行照常显示，yishuship 的一行加在下面。
+yishuship 只管三件事：记住每个想法、需要你决定时停下来问、做完时拿出证据。怎么写代码、怎么做设计、怎么发布，这些做事方式都在外面，用到时才去读。[INDEX.md](INDEX.md) 是这张地图，按"什么时候读哪份"来写。`scripts/check-index.py` 检查地图里的路径是否都还在。
 
-可选：在真实 App 里自动验证需要 [cua-driver](https://github.com/trycua/cua)；截图页面优先开在 [cmux](https://cmux.com) 侧边，没有就用浏览器。
-
-## 这一版为什么这么小
-
-v2 有 14 个 skill、4 个拦截 hook、一套状态机和 21 个检查点，是在替当时较弱的模型补课，模型变强以后这些都成了每天要付的成本。v3 只留下在 vibereader 上真实试点过、确实管用的部分。旧版在 `v2-final` 标签里。
+为什么它这么小：见 [docs/history.md](docs/history.md)。
 
 ## License
 

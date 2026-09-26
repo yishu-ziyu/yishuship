@@ -52,6 +52,7 @@ bash -n scripts/*.sh
 python3 scripts/check-index.py              # every index row still resolves
 python3 scripts/ideas.py                    # overview renders
 echo '{"cwd":"'"$PWD"'"}' | bash scripts/statusline.sh   # no line unless an idea is active here
+HOME=$(mktemp -d) bash scripts/install.sh --no-obsidian </dev/null   # fresh-user install still works
 wc -l skills/*/*.md | tail -1      # under 400
 ```
 
@@ -62,8 +63,9 @@ an idea in progress.
 
 ## Shipping a change to the installed plugin
 
-Claude Code installs a copy under `~/.claude/plugins/cache/yishuship/`, so edits
-here do nothing until the plugin is updated: bump `version` in both
-`.claude-plugin/plugin.json` and `marketplace.json`, then
-`claude plugin update yishuship@yishuship` and start a new session. The status
-line script runs from this checkout directly and needs no update.
+Installed from a local checkout (what `scripts/install.sh` does), Claude Code
+loads the plugin in place: edits here take effect at the next session start or
+`/reload-plugins`. For a release, bump `version` in both
+`.claude-plugin/plugin.json` and `marketplace.json` so copies installed from
+GitHub pick it up with `claude plugin update yishuship@yishuship`. The status
+line script always runs from this checkout.
