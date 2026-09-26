@@ -1,20 +1,12 @@
 {
   "name": "yishuship",
-  "description": "Ship 增强版：产品全生命周期工作流 + 对抗式设计 + 工程执行一体化。在原版 Ship 基础上叠加 V2 产品生命周期能力。",
-  "version": "0.1.0",
+  "description": "从一个想法持续跟进到用户能用上：把想法变成具体行为、一小块一小块做完、每一步附真实证据，跨会话不丢。",
+  "version": "3.0.0",
   "author": {
     "name": "奕枢",
     "url": "https://github.com/yishu-ziyu"
   },
   "repository": "https://github.com/yishu-ziyu/yishuship",
   "license": "MIT",
-  "keywords": [
-    "ship",
-    "product-lifecycle",
-    "product-management",
-    "workflow",
-    "agent",
-    "pm-intake",
-    "adversarial-design"
-  ]
+  "keywords": ["idea-to-ship", "bdd", "product", "workflow"]
 }

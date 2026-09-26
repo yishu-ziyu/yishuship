@@ -1,50 +1,59 @@
-# AGENTS.md
+# yishuship agent guide
 
-yishuship 是 Ship 增强版：PM 层 + 对抗式设计 + 工程执行一体化。
+`CLAUDE.md` is a symlink to this file. Edit this one.
 
-## 仓库结构
+## What this is
 
-```
-skills/
-  use-yishuship/    路由脑（入口）
-  matt/             Matt Pocock upstream skill 运行时适配器
-  pm-intake/        产品生命周期入口：类型判断→战略→调研→规格→工程交接
-  design/           对抗式设计（host + peer）
-  dev/              实现（host + peer 交叉验证）
-  e2e/              E2E 测试固化
-  review/           bug 审查
-  qa/               独立 QA
-  refactor/         四镜头扫描
-  handoff/          PR + CI fix loop
-  arch-design/      系统设计
-  visual-design/    DESIGN.md 视觉系统
-  write-docs/       文档生成
-  .shared/          共享参考（unknown-gate, execution-model, runtime-resolution, product-lifecycle-21, report-card, startup, cleanup, matt-pocock-standard）
-hooks/              质量门 hooks
-scripts/            状态机脚本
-docs/               设计文档
-vendor/mattpocock-skills/  Matt Pocock Skills For Real Engineers 原始标准层（MIT）
-```
+A Claude Code plugin that follows one product idea from a sentence to users
+being able to use it. The user is a product person: they own what users see
+and do; the agent owns everything inside the box. Three user-invoked skills:
 
-## 开发命令
+- `skills/idea` — shape a new idea into behaviors, a first slice, a decision.
+- `skills/next` — move the current idea one verified step (slice, decision, ship).
+- `skills/ideas` — list every idea across projects.
+
+`skills/shared/*.md` hold the rules all three follow: when and how to stop and
+ask, what "done" must show, the progress file, verifying in the running app.
+`scripts/` hold everything deterministic.
+
+Engineering habits (debugging, planning, review, reading) come from Waza
+(`hunt`, `think`, `check`, `read`) installed separately; do not re-implement
+them here, and refer to them only by skill name.
+
+## Rules for changing it
+
+- Give the model the target, not the path: each SKILL.md starts with an
+  outcome contract; keep process to what changes behavior.
+- Budget: all `skills/**/*.md` together stay under 400 lines. Adding a line
+  means finding one to remove. Check with `wc -l skills/*/*.md | tail -1`.
+- Deterministic work (listing, parsing, status, page generation, idle checks)
+  goes in `scripts/`, stdlib only, no new dependencies.
+- No hooks that block the user or the agent. Information may be shown; nothing
+  may refuse.
+- No invented names for mechanisms in anything the user reads. Say what it does.
+- A lesson earns a line only if it came from a real run and prevents a repeat;
+  write the rule, drop the story.
+- Commit messages: `<type>: <description>`; no AI co-author lines.
+
+## Checking a change
 
 ```bash
-# 验证 skill 文件
-find skills -name "SKILL.md" | wc -l  # 应为 14
-
-# 检查残留的 ship: 引用
-grep -r "ship:" skills --include="*.md" | grep -v "yishuship"
-
-# 测试 hooks
-echo '{"cwd":"/path","tool_name":"Edit"}' | bash scripts/phase-guardrail.sh
+python3 -m py_compile scripts/ideas.py
+bash -n scripts/*.sh
+python3 scripts/ideas.py                    # overview renders
+echo '{"cwd":"'"$PWD"'"}' | bash scripts/statusline.sh   # no line unless an idea is active here
+wc -l skills/*/*.md | tail -1      # under 400
 ```
 
-## 约定
+Behavior changes to the skills are verified by using them on a real idea and
+reading the transcript, not by keyword checks. A read-only run works well:
+`claude -p --permission-mode plan "/yishuship:next"` inside a project that has
+an idea in progress.
 
-- 所有 skill 用 `/yishuship:` 前缀
-- 产出物放 `.ship/tasks/<task_id>/`
-- 决策沉淀到 `docs/decisions/DEC-NNNN.md`
-- 非平凡工程流程遵循 `skills/.shared/matt-pocock-standard.md`，并按 phase 读取对应的 `vendor/mattpocock-skills/**/SKILL.md`
-- 执行秩序遵循 `skills/.shared/execution-model.md`：阶段依赖串行、阶段内可并行、失败回环
-- 未知先调研遵循 `skills/.shared/unknown-gate.md`：无证据即未知，禁止用自信代替引用；入口见 `use-yishuship`
-- Conventional Commits: `feat(pm):`, `fix(skill):`, `docs(readme):`
+## Shipping a change to the installed plugin
+
+Claude Code installs a copy under `~/.claude/plugins/cache/yishuship/`, so edits
+here do nothing until the plugin is updated: bump `version` in both
+`.claude-plugin/plugin.json` and `marketplace.json`, then
+`claude plugin update yishuship@yishuship` and start a new session. The status
+line script runs from this checkout directly and needs no update.

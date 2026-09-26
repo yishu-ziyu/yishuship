@@ -1,248 +1,60 @@
 # yishuship
 
-> Ship 增强版：一个把 idea 推进到可交付结果的 PM + engineering delivery runtime。
+一个想法，从说出口到用户能用上，全程跟住，不丢。
 
-yishuship 不是一组松散的斜杠命令。它把产品判断、需求澄清、架构选择、垂直切片、TDD 实现、双轴 review、运行时 QA、发布交接和复盘沉淀放进同一条工作链。
+你管用户能看到什么、能做什么；它管盒子里面的代码、测试和质量。需要你决定的时候，它停下来问你；说做完的时候，它拿出改之前和改之后的证据。
 
-核心目标是超级个体式交付：用户给出一个想法，agent 能判断要不要做、定义清楚做什么、拆成可执行工程任务、实现、验证、交付，并把重要知识写回仓库。
+## 三个命令
 
-[完整用法](docs/operations/yishuship-usage.md) · [Matt flow](docs/decisions/DEC-0004-matt-pocock-flow-standard.md) · [质量怎么验](#skill-质量说明可选) · [工程血统 Ship](https://github.com/heliohq/ship)
+```
+/yishuship:idea 一句话说你的想法
+   │  新想法。追问几个问题，写出用户能做什么、能看到什么，
+   │  判断值不值得做，切出最小的第一块，然后等你决定
+   ▼
+/yishuship:next
+   │  继续。在项目目录里用。读这个想法的进度，
+   │  做下一小块，在真实 App 里验证，给你看证据；
+   │  要你决定时停下。做到用户能用上，才算上线
+   ▼
+/yishuship:ideas
+      看全部。所有项目里还活着的想法：
+      走到哪、哪个在等你、哪个很久没动了
+```
 
-## 当前状态
+报错、调试、review、读网页这些不用专门记，交给 [Waza](https://github.com/tw93/Waza)：说"这个报错查一下"会触发 `/hunt`，说"帮我 review"会触发 `/check`。
 
-- **唯一源仓库**：`/Users/mahaoxuan/Developer/yishuship`。
-- 本机全局 skill 暴露面：Claude + agents 各 `14/14`（symlink → 源仓库）。
-- Claude Code：`~/.claude/skills/yishuship:*` + plugin cache（由 `scripts/sync-local.sh --apply` 刷新）。
-- Trae / agents：`~/.agents/skills/yishuship:*`。
-- Codex：`~/plugins/yishuship` → 源仓库 symlink；plugin cache `yishuship@personal` 同步。
-- Matt Pocock upstream skills 已 vendor 到 `vendor/mattpocock-skills/`，并通过 phase runtime activation 和 `/yishuship:matt` 实际读取执行。
+## 你会看到什么
 
-改完源仓库后，跑一次统一入口同步，并重启已打开的 Claude / Codex / Grok 会话：
+- **终端底部一行**：`yishuship ▸ 引用高亮原句 · 在做 · 等你：无`。不用输命令也知道有没有东西在等你。
+- **需要你决定时**：选项竖着排，每个写清后果，标出推荐，回一句"1A 2B"就行。
+- **做完时**：截图在终端旁边的页面里并排给你看，看完它会关掉。
+- **每个想法一个进度文件**：`<项目>/.ship/ideas/<名字>.md`，记着为什么做、定了哪些行为、做到哪、下一步。换个会话、隔一周再来，都能接上。
+
+## 安装
 
 ```bash
-scripts/sync-local.sh --apply
+git clone https://github.com/yishu-ziyu/yishuship.git ~/Developer/yishuship
+claude plugin marketplace add ~/Developer/yishuship
+claude plugin install yishuship@yishuship
+
+# 搭配的 Waza（只装这四个）
+npx skills add tw93/Waza -s hunt think check read -g -y -a claude-code
 ```
 
-## 默认主链
+底部状态行：把 `~/.claude/settings.json` 的 `statusLine.command` 改成
 
-```text
-idea
-  -> alignment / shared language
-  -> PRD with test seams
-  -> vertical slices
-  -> TDD implementation
-  -> two-axis review
-  -> runtime QA
-  -> handoff
-  -> learning / next iteration
+```
+bash ~/Developer/yishuship/scripts/statusline.sh <原来的状态行命令>
 ```
 
-这条链来自三层能力：
+原来的那行照常显示，yishuship 的一行加在下面。
 
-| Layer | 作用 | 主要位置 |
-|---|---|---|
-| Product lifecycle | 判断做不做、做什么、为谁做、为什么现在做 | `skills/pm-intake/`, `skills/.shared/product-lifecycle-21.md` |
-| Engineering delivery | 设计、实现、测试、review、QA、发布 | `skills/design/`, `skills/dev/`, `skills/e2e/`, `skills/review/`, `skills/qa/`, `skills/handoff/` |
-| Matt upstream runtime | 把 Matt Pocock 的高质量工程 skills 作为真实运行标准 | `skills/matt/`, `skills/.shared/matt-pocock-standard.md`, `vendor/mattpocock-skills/` |
+可选：在真实 App 里自动验证需要 [cua-driver](https://github.com/trycua/cua)；截图页面优先开在 [cmux](https://cmux.com) 侧边，没有就用浏览器。
 
-## Plugin 和 Skill 的关系
+## 这一版为什么这么小
 
-插件是分发和运行时外壳：它把 skills、hooks、脚本、vendor 标准层和同步逻辑一起安装到 Claude Code / Codex / agents 环境。
-
-skill 是可触发的工作纪律：每个 `SKILL.md` 描述一种稳定流程，例如 `/yishuship:pm-intake`、`/yishuship:dev`、`/yishuship:matt`。
-
-所以 yishuship 选择插件形式，是因为全流程不只是一个 skill 文档能解决的事。它需要：
-
-- 多个独立入口，每个入口有清晰触发条件。
-- hooks 和脚本约束阶段隔离、PM gate、stop gate。
-- durable artifacts，把需求、决策、验证和交接写到磁盘。
-- vendored upstream skills，让 Matt 的原始方法被读取执行，而不是靠改写后的摘要。
-- benchmark env，用 SkillOpt 测试流程是否真的稳定触发。
-
-## 怎么用
-
-不确定走哪条路时，从路由脑开始：
-
-```text
-/yishuship:use-yishuship
-```
-
-清楚目标时直接调用对应 skill：
-
-| Intent | Command | Result |
-|---|---|---|
-| 一个原始 idea、产品方向、新功能 | `/yishuship:pm-intake` | 产品类型、用户、问题、策略、调研、PRD、test seams、工程交接 |
-| 想直接使用 Matt 原始流程 | `/yishuship:matt` | 读取并执行 vendored Matt `SKILL.md` |
-| 已经想清楚方向，需要设计方案 | `/yishuship:design` | 对抗式设计、可执行 spec、vertical slices |
-| 实现已有 plan / issue | `/yishuship:dev` | 按 slice 执行，读取 `implement` + `tdd` upstream |
-| 固化验收测试 | `/yishuship:e2e` | E2E 测试、运行记录、回归证据 |
-| 找 bug 或审查 diff | `/yishuship:review` | Standards + Spec 双轴 review |
-| 跑真实应用做 QA | `/yishuship:qa` | 独立运行时验证和问题证据 |
-| 改善架构或清理复杂度 | `/yishuship:refactor` | deep-module 扫描和 scoped refactor plan |
-| 做详细系统设计 | `/yishuship:arch-design` | 设计文档、接口、边界、权衡 |
-| 生成项目文档 | `/yishuship:write-docs` | `docs/` 下的结构化文档和索引 |
-| 视觉系统 | `/yishuship:visual-design` | `DESIGN.md` 和预览 |
-| 发布、PR、CI 修复、交接 | `/yishuship:handoff` | PR / CI loop / context handoff |
-| 从 idea 到交付全流程 | `/yishuship:auto` | PM -> design -> dev -> e2e -> review -> qa -> handoff |
-
-### Matt upstream 直接调用
-
-```text
-/yishuship:matt use ask-matt to choose the right workflow
-/yishuship:matt use grill-with-docs for this idea
-/yishuship:matt run to-spec on our conversation
-/yishuship:matt use to-tickets to split this PRD
-/yishuship:matt use tdd for this issue
-/yishuship:matt use code-review on this diff
-```
-
-`/yishuship:matt` 不复制 Matt 的内容，也不只引用摘要。它会选择 `vendor/mattpocock-skills/**/SKILL.md`，完整读取后在 yishuship 的产物约定里执行。
-
-## 它会产出什么
-
-重大任务默认写到：
-
-```text
-.ship/tasks/<task_id>/
-  input/
-  product/
-  delivery/
-  plan/
-  e2e/
-  qa/
-  control/
-  dev-context.md
-```
-
-长期知识写到：
-
-```text
-CONTEXT.md
-docs/decisions/DEC-NNNN-*.md
-docs/operations/
-docs/design/
-```
-
-重要原则：不要把关键项目知识只留在聊天里。
-
-## 安装和同步
-
-本仓库的默认本地路径（**唯一真相源**）：
-
-```text
-/Users/mahaoxuan/Developer/yishuship
-```
-
-统一检查 / 刷新所有入口（Claude skills、agents skills、Claude plugin、Codex personal source + cache）：
-
-```bash
-scripts/sync-local.sh --check
-scripts/sync-local.sh --apply
-```
-
-可选：对比 `origin/main`，或在干净工作区 fast-forward main：
-
-```bash
-scripts/sync-local.sh --check-remote
-scripts/sync-local.sh --apply --pull-main
-```
-
-健康状态应包含：
-
-```text
-claude_skill_links: 14/14
-agents_skill_links: 14/14
-codex_personal_src: ... (symlink->repo)
-claude_plugin_peer_gate: yes
-codex_plugin_peer_gate: yes
-update_needed: no
-```
-
-详见 [docs/operations/yishuship-sync.md](docs/operations/yishuship-sync.md)。
-
-## 验证
-
-基础结构检查：
-
-```bash
-find skills -name "SKILL.md" | wc -l
-```
-
-期望值是 `14`。
-
-Matt runtime activation 检查：
-
-```bash
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=benchmarks \
-  python3 -m unittest benchmarks/test_matt_runtime_activation.py
-```
-
-PM scorer / lifecycle 回归：
-
-```bash
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=benchmarks \
-  python3 -m unittest benchmarks/test_pm_scorer_lifecycle.py
-```
-
-## Skill 质量说明（可选）
-
-**你日常用 yishuship，不需要安装或运行 SkillOpt。**
-
-SkillOpt（[microsoft/SkillOpt](https://github.com/microsoft/SkillOpt)）是我们在**开发这些 skill 时**用过的训练/评测工具：用来压 skill 文案质量，不是产品运行时的一部分。仓库里的 `benchmarks/` 是内部质量资产；对用户来说，它的意义只有一句：
-
-> 这些 skill 不是随手写的提示词，而是用可重复的评分回路打磨过的。
-
-维护者若要复现评测，见 [docs/SKILLOPT_TRAINING.md](docs/SKILLOPT_TRAINING.md)。
-
-本地轻量自检（不依赖 SkillOpt）：
-
-```bash
-python3 benchmarks/test_matt_runtime_activation.py -v
-python3 benchmarks/test_activation_layer.py -v
-```
-
-## 仓库结构
-
-```text
-skills/
-  use-yishuship/    router
-  matt/             Matt upstream runtime adapter
-  pm-intake/        product lifecycle intake
-  design/           adversarial design
-  dev/              implementation + peer verification
-  e2e/              durable acceptance tests
-  review/           standards + spec review
-  qa/               runtime QA
-  refactor/         architecture health scan
-  handoff/          PR / CI / context handoff
-  arch-design/      detailed system design
-  visual-design/    DESIGN.md
-  write-docs/       docs generation
-  .shared/          shared standards and gates
-hooks/              Claude / Codex / Cursor hooks
-scripts/            sync, gate, orchestration, SkillOpt sync
-benchmarks/         pm_scorer, matt_flow_scorer, SkillOpt env
-docs/               decisions, operations, specs
-vendor/
-  mattpocock-skills/  Matt Pocock Skills For Real Engineers snapshot
-```
-
-## 与原版 Ship 的区别
-
-| Dimension | Ship | yishuship |
-|---|---|---|
-| 定位 | 工程 harness | PM + 工程 + 交付 runtime |
-| 入口 | `/ship:use-ship` | `/yishuship:use-yishuship` |
-| 新功能 | 直接进入 design | 先进入 product lifecycle |
-| 产品判断 | 弱 | 做不做、为谁做、为什么做、怎么验证 |
-| 工程主链 | design -> dev -> review | alignment -> PRD -> Human Go -> slices -> TDD -> review -> QA -> handoff |
-| 入口选择 | 常一上来 full auto | auto 固定脊骨；灵活用 router / 单 skill。见 [entry-and-flow-mapping](docs/operations/entry-and-flow-mapping.md) · [DEC-0009](docs/decisions/DEC-0009-human-go-gate.md) |
-| 上游标准 | 无 | Matt Pocock upstream runtime |
-| 质量评测 | 无 | SkillOpt PM scorer + Matt flow scorer |
-| 产物沉淀 | `.ship/` | `.ship/` + `CONTEXT.md` + decisions + operations docs |
+v2 有 14 个 skill、4 个拦截 hook、一套状态机和 21 个检查点，是在替当时较弱的模型补课，模型变强以后这些都成了每天要付的成本。v3 只留下在 vibereader 上真实试点过、确实管用的部分。旧版在 `v2-final` 标签里。
 
 ## License
 
-MIT。
-
-`vendor/mattpocock-skills/` 保留上游 Matt Pocock skills 的 MIT license 和原始文件结构。
+MIT
