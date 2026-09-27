@@ -29,6 +29,18 @@ before creating a file or changing its structure.
   from real content and labeled 示意. Before asking, run
   `python3 <skill-dir>/../../scripts/ideas.py --visuals .`: every option and
   every named thing has a picture and no file is missing. Clear it with `waiting`.
+- `kind: bug` marks a bug file: `## 现象` and `## 应该怎样` stand in for 为什么做
+  and 用户能看到的行为; the rest is the same. Its root cause goes under `## 设计`.
+- `## 设计` holds one `### <slice>` per slice: the change in two or three
+  sentences a product person can follow, the rejected alternative, a diagram
+  picture, and 你确认了 <date> once the user agreed.
+- Link every design, slice and evidence note to the behaviors it is for, by
+  number in the order they are listed: `服务：行为1、行为3` on a design or a
+  slice, `证明：行为2` on an evidence note. A tick on a behavior means decided,
+  never done; what proves it is the evidence that names it. Before you stop,
+  run `python3 <skill-dir>/../../scripts/ideas.py --trace .` and close or report
+  every gap it lists (a done slice whose behavior nothing proves, a design or
+  slice that serves no behavior, a design the user has not confirmed).
 - Record decisions with their reason. Embed before/after screenshots under
   `## 证据`; the user should not have to open a folder.
 - Keep `## 问题`: what this idea does not yet know, one line each as in the

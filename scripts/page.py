@@ -34,7 +34,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from ideas import (current, doing, done_slices, evidence_note, project_root, questions, quiet_for,  # noqa: E402
-                   slice_names, slice_things, visuals)
+                   slice_names, slice_things, trace, visuals)
 
 POLL_MS = 2000
 IDLE_EXIT = 600      # seconds without a request before the server stops
@@ -64,9 +64,14 @@ def esc(text: str) -> str:
 
 
 def body(idea: dict | None) -> str:
+    return main_body(idea) + (trace_view(idea) if idea else "")
+
+
+def main_body(idea: dict | None) -> str:
     if idea is None:
         return '<p class="state">这个项目现在没有进行中的想法</p>'
-    top = f'<p class="which">{esc(idea.get("project"))} · {esc(idea.get("idea"))}</p>'
+    kind = "bug · " if idea.get("kind") == "bug" else ""
+    top = f'<p class="which">{esc(idea.get("project"))} · {kind}{esc(idea.get("idea"))}</p>'
     slice_name = idea.get("slice", "")
     question = waiting_block(idea)
     if question:
@@ -102,6 +107,25 @@ def body(idea: dict | None) -> str:
     after = ("" if age or not idea.get("next")
              else f'<p class="next"><span class="label">接下来</span>{esc(idea.get("next"))}</p>')
     return f"{top}{head}{now}{listing}{after}"
+
+
+def trace_view(idea: dict) -> str:
+    """Each behavior with what serves and proves it; a behavior nothing proves stands out."""
+    t = trace(idea)
+    if not t["behaviors"] or not any(b["designs"] or b["slices"] or b["proven_by"] for b in t["behaviors"]):
+        return ""
+    cell = lambda xs, none: "".join(f"<div>{esc(x)}</div>" for x in xs) or f'<div class="none">{none}</div>'
+    rows = ""
+    for b in t["behaviors"]:
+        missing = b["built"] and not b["proven_by"]
+        proof = cell(b["proven_by"], "做完了，没有证据" if missing else ("还没做" if b["slices"] else "—"))
+        rows += (f'<tr class="{"gap" if missing else ""}"><td><b>{esc(b["id"])}</b> {esc(b["text"])}'
+                 f'<div class="dec">{"定了" if b["decided"] else "待定"}</div></td>'
+                 f'<td>{cell(b["designs"], "—")}</td><td>{cell(b["slices"], "—")}</td><td>{proof}</td></tr>')
+    gaps = "".join(f"<li>{esc(g)}</li>" for g in t["gaps"])
+    return (f'<h3 class="oq">需求怎么落到设计、任务和证据</h3><table class="trace"><tr><th>用户能看到的行为</th><th>设计</th>'
+            f'<th>任务</th><th>被什么证明</th></tr>{rows}</table>'
+            + (f'<details class="gaps"><summary>断开的地方 · {len(t["gaps"])}</summary><ul>{gaps}</ul></details>' if gaps else ""))
 
 
 def figure(item: dict, cls: str = "fig") -> str:
@@ -284,7 +308,11 @@ li.here{{color:#1b1b1a}} .mark{{display:inline-block;width:1.6em}} li.done .mark
 .next{{margin-top:30px;color:#555}}
 pre{{font:14px/1.5 Menlo,"PingFang SC",monospace;white-space:pre;overflow-x:auto;margin:24px 0 16px}}
 .term{{border-bottom:1.5px dashed #d06a12;cursor:zoom-in}} .term:hover{{background:#d06a1222}}
-.oq{{font-size:16px;margin:26px 0 10px}} .opts{{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}}
+.oq{{font-size:16px;margin:26px 0 10px}}
+.trace{{border-collapse:collapse;width:100%;font-size:13px}} .trace th{{text-align:left;color:#8b867c;font-weight:500;padding:4px 10px 6px 0}}
+.trace td{{border-top:1px solid #d8d2c5;padding:7px 10px 7px 0;vertical-align:top}} .trace .dec{{color:#8b867c;font-size:12px}}
+.trace .none{{color:#b3ab9c}} .trace tr.gap td:last-child .none{{color:#b5541a;font-weight:600}}
+.gaps{{margin-top:10px;font-size:13px;color:#555}} .gaps summary{{cursor:pointer;color:#b5541a}} .opts{{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}}
 .opt{{background:#fffdf8;border:1px solid #d8d2c5;border-radius:10px;padding:12px}} .opt.rec{{border:2px solid #d06a12}}
 .oh{{font-weight:600}} .oh em{{font-style:normal;color:#d06a12;font-size:12px;margin-left:6px}} .looks{{font-size:13px;color:#555;margin:2px 0 10px}}
 .kind{{font-size:11.5px;color:#8b867c;margin-top:6px}} .nopic{{height:120px;display:flex;align-items:center;justify-content:center;background:#efebe2;color:#8b867c;border-radius:6px;font-size:13px}}

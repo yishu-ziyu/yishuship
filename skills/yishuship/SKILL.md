@@ -1,6 +1,6 @@
 ---
 name: yishuship
-description: "The one entry point: decides from the progress files whether to shape a new idea, ask the pending question, continue the current idea, or show every idea. Use when the user types /yishuship, with or without a sentence after it."
+description: "The one entry point: decides from the progress files whether to shape a new idea, record and fix a bug, ask the pending question, continue the current idea, or show every idea. Use when the user types /yishuship, with or without a sentence after it."
 disable-model-invocation: true
 ---
 
@@ -30,6 +30,13 @@ the terminal that follows the progress file (once; it says if already open). The
    - an instruction about the current idea → continue with
      `../next/SKILL.md`, applying it;
    - a new idea → `../idea/SKILL.md`;
+   - a bug or an observed problem (an error, a screenshot of something wrong,
+     "it used to work", an item from 遗留) → a bug file, then `../next/SKILL.md`
+     on it. Write `.ship/ideas/<slug>.md` from the template with `kind: bug`:
+     现象 in the user's words with their screenshot, 应该怎样, and one slice
+     `第一块 修好：<现象>`. A bug inside the current idea's slice stays in that
+     idea's file instead. No go / drop question: a bug is fixed unless the fix
+     changes what users see in more than one reasonable way;
    - asking to switch to another idea by name → make that idea current and
      continue with it.
    If it could be two of these, ask one short question instead of guessing.

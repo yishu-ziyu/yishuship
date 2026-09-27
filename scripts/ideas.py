@@ -14,6 +14,7 @@ Each project keeps one progress file per idea at .ship/ideas/<slug>.md.
   ideas.py --status-line DIR   one line for the terminal status line (empty if none)
   ideas.py --route DIR     where /yishuship should go from DIR, as JSON
   ideas.py --visuals DIR   the pictures under ## 看得见 of the active idea, and any file missing
+  ideas.py --trace DIR     why → behaviors → design → slices → evidence of the active idea, and the gaps
 """
 from __future__ import annotations
 
@@ -325,6 +326,63 @@ def evidence_note(idea: dict | None, question: str) -> str:
     return ""
 
 
+SERVES = re.compile(r"(?:服务|证明)[：:]\s*((?:行为\d+[、,，\s]*)+)")
+
+
+def _section(body: str, name: str) -> str:
+    found = re.search(rf"^## {name}\n(.*?)(?=^## |\Z)", body, flags=re.M | re.S)
+    return found.group(1) if found else ""
+
+
+def _serves(text: str) -> list[str]:
+    return [f"行为{n}" for m in SERVES.finditer(text) for n in re.findall(r"行为(\d+)", m.group(1))]
+
+
+def trace(idea: dict | None) -> dict:
+    """Why → behaviors → design → slices → evidence, linked by `服务：行为N` / `证明：行为N`.
+
+    Behaviors are numbered by their order under ## 用户能看到的行为 (or ## 应该怎样
+    in a bug file). A tick there means decided, never done: whether a behavior is
+    proven is worked out from the evidence that names it, not from any tick.
+    """
+    out = {"behaviors": [], "designs": [], "slices": [], "evidence": [], "gaps": []}
+    if not idea or not idea.get("file"):
+        return out
+    body = Path(idea["file"]).read_text(encoding="utf-8")
+    wanted = _section(body, "用户能看到的行为") or _section(body, "应该怎样")
+    for n, m in enumerate(re.finditer(r"^- \[([ xX])\] +(.+)$", wanted, flags=re.M), 1):
+        out["behaviors"].append({"id": f"行为{n}", "decided": m.group(1) != " ",
+                                 "text": re.sub(r"^行为\d+\s*", "", m.group(2).strip())})
+    for m in re.finditer(r"^### +(.+?)\n(.*?)(?=^### |\Z)", _section(body, "设计"), flags=re.M | re.S):
+        out["designs"].append({"title": m.group(1).strip(), "serves": _serves(m.group(2) + m.group(1)),
+                               "confirmed": "你确认了" in m.group(2)})
+    for m in re.finditer(r"^- \[([ xX])\] +(.+)$", _section(body, "进度"), flags=re.M):
+        name = m.group(2).split(" · ")[0].strip()
+        out["slices"].append({"title": name, "done": m.group(1) != " ", "serves": _serves(m.group(2))})
+    for m in re.finditer(r"^### +(.+?)\n(.*?)(?=^### |\Z)", _section(body, "证据"), flags=re.M | re.S):
+        out["evidence"].append({"title": m.group(1).strip(), "proves": _serves(m.group(2) + m.group(1))})
+    ids = {b["id"] for b in out["behaviors"]}
+    for b in out["behaviors"]:
+        b["designs"] = [d["title"] for d in out["designs"] if b["id"] in d["serves"]]
+        b["slices"] = [s["title"] for s in out["slices"] if b["id"] in s["serves"]]
+        b["proven_by"] = [e["title"] for e in out["evidence"] if b["id"] in e["proves"]]
+        done_slice = any(s["done"] for s in out["slices"] if b["id"] in s["serves"])
+        b["built"] = done_slice
+        if done_slice and not b["proven_by"]:
+            out["gaps"].append(f"{b['id']}：服务它的任务做完了，但没有证据写着“证明：{b['id']}”")
+    linked = [("设计", d["title"], d["serves"]) for d in out["designs"]] + \
+             [("进度", s["title"], s["serves"]) for s in out["slices"]]
+    if any(serves for _, _, serves in linked):  # an older file without links is not flagged line by line
+        for where, title, serves in linked:
+            if not serves:
+                out["gaps"].append(f"{where}「{title}」没写服务哪条行为：超出了这个想法，或漏写了")
+            out["gaps"] += [f"{where}「{title}」写的 {s} 不存在" for s in serves if s not in ids]
+        for d in out["designs"]:
+            if not d["confirmed"]:
+                out["gaps"].append(f"设计「{d['title']}」你还没确认")
+    return out
+
+
 def visual(ref: str) -> dict:
     """`../evidence/x.png#box=10,20,300,200` → where the page fetches it and the box to draw."""
     path, _, frag = ref.strip().partition("#")
@@ -430,7 +488,7 @@ def status_line(idea: dict, columns: int | None = None) -> str:
     the tail goes first (next step, then the name); the state is never cut.
     """
     yellow, green, cyan, dim, reset = "\033[1;33m", "\033[32m", "\033[36m", "\033[2m", "\033[0m"
-    name = f"{idea.get('project', '')} · {idea.get('short') or idea['idea']}"
+    name = f"{idea.get('project', '')} · {'bug · ' if idea.get('kind') == 'bug' else ''}{idea.get('short') or idea['idea']}"
     hint = True  # a command hint is shown whole or not at all; a slice may be clipped
     if idea.get("waiting"):
         count = len([q for q in re.split(r"[；;]", idea["waiting"]) if q.strip()])
@@ -465,7 +523,7 @@ def status_line(idea: dict, columns: int | None = None) -> str:
 
 
 def describe(idea: dict) -> list[str]:
-    head = f"  {idea['project']} · {idea['idea']}"
+    head = f"  {idea['project']} · {'bug · ' if idea.get('kind') == 'bug' else ''}{idea['idea']}"
     step = idea.get("slice") or STEP.get(idea.get("status", ""), idea.get("status", ""))
     lines = [head, f"    {step} · {idea['age']} 天前更新" if idea.get("age") is not None else f"    {step}"]
     if idea.get("waiting"):
@@ -530,6 +588,9 @@ def main(argv: list[str]) -> int:
         problems = visual_problems(idea, seen, root)
         print(json.dumps({**seen, "problems": problems}, ensure_ascii=False, indent=2))
         return 1 if problems else 0
+    elif argv[:1] == ["--trace"] and len(argv) == 2:
+        linked = trace(current(argv[1]))
+        print(json.dumps(linked, ensure_ascii=False, indent=2))
     elif argv[:1] == ["--route"] and len(argv) == 2:
         print(json.dumps(route(argv[1]), ensure_ascii=False, indent=2))
     elif argv == ["--json"]:

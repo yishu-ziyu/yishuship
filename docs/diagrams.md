@@ -1,8 +1,9 @@
 # Showing structure to the user
 
 The user judges behavior. A wall of prose makes them rebuild the structure in
-their head; a small diagram hands it over. Show, do not ask: the shape of the
-code is shown so they can follow along, and architecture stays yours.
+their head; a small diagram hands it over. The design of a slice is shown so
+they can confirm it before any code is written: code is costly to undo, and a
+design left in chat is lost at the next session.
 
 ## Which view, when
 
@@ -10,7 +11,7 @@ code is shown so they can follow along, and architecture stays yours.
 |---|---|
 | Behaviors cross more than one screen | The screen flow: each screen, what the user can act on there, an arrow to where it leads. No visual detail. |
 | A behavior branches (works / fails, empty / loading / error) | A state diagram, or a sequence diagram with both branches. |
-| Before building a slice | The shape of the change: call tree, component tree, or shallow file tree; as a diff when an existing shape changes. |
+| Before building a slice | The design: the parts involved and how data or requests move between them (a box-and-arrow picture), marking what is new or changed; as before → after when an existing shape changes. For a bug, the same picture with the broken step marked. |
 | Done | Before → after, as in `skills/shared/done.md`. |
 | A decision | The layout in `skills/shared/asking.md`. |
 
@@ -28,6 +29,10 @@ user with the other open behaviors.
 ```
 
 ## Drawing
+
+For the page, draw it as a small HTML file in the evidence folder (boxes, arrows,
+labels in product words), list it under `## 看得见`, and check it with
+`scripts/snap.py` like any other picture. In the terminal, text art.
 
 - The smallest view that answers the current question. Keep only the screens,
   calls, files, states, and boundaries it needs; one question, one zoom level.

@@ -14,7 +14,8 @@
   before/after claims. It runs the product itself and reports only mismatches
   that break a behavior or a claim, not style. Fix, check again, and say in
   the report what it found. If no subagent can run, say the check was yours.
-- **Each decided behavior gets its own line** with the evidence that proves it.
+- **Each decided behavior gets its own line** with the evidence that proves it,
+  and that evidence note in the progress file says `证明：行为N`.
 - **What was not verified**, stated plainly with the reason, in its own block.
   A missing layer is a gap, not an implied pass.
 - **Commands actually run** this session back every "passes" claim. If evidence

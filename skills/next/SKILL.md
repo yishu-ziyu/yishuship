@@ -32,10 +32,16 @@ one idea one step and leaves the progress file true.
 
 ## A slice
 
-4. **Settle the behaviors.** Any behavior of this slice that still has a choice
-   goes to the user, batched. Read `../shared/asking.md` before writing any
-   question and use its layout exactly; a plain numbered list is not it.
-   Decide everything inside the box yourself.
+4. **Settle the behaviors and the design.** Any behavior of this slice that
+   still has a choice goes to the user, batched. Read `../shared/asking.md`
+   before writing any question and use its layout exactly; a plain numbered
+   list is not it. For a bug, find the root cause first (index row for errors).
+   Write the slice's design under `## 设计` as in the template: what changes and
+   why, the alternative you rejected, and a diagram rendered as a picture (index
+   row for showing structure). Unless the change is one obvious edit, the design
+   goes to the user in the same stop as the behaviors, as a question whose
+   picture is that diagram (an HTML picture under `## 看得见`, not text art).
+   Everything else inside the box is yours.
 5. **Read the project's own rules first** (AGENTS.md, CLAUDE.md, CONTEXT.md,
    ADRs) and follow them. New domain terms go into CONTEXT.md if it exists.
 6. **Build it the way this slice calls for.** Match the slice against the

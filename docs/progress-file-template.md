@@ -12,6 +12,7 @@ short: <at most 8 characters; the status line shows this>
 date: <YYYY-MM-DD the idea started>
 tags: [yishuship, <project>]
 project: <project name>
+kind: <empty for an idea; bug for a bug or an observed problem>
 status: shaping | building | waiting | shipping | shipped | paused | dropped
 waiting: <the open questions in one short line, separated by ；, or empty>
 slice: <current slice, short: the status line shows it; or empty>
@@ -44,8 +45,8 @@ updated: <YYYY-MM-DD>
 - [x] 第一块 · <question> · 实测：<the evidence in product words, with its number>
 
 ## 进度
-- [x] 第一块 <slice> · [[#证据]] · <commit>
-- [ ] 第二块 <slice>
+- [x] 第一块 <slice> · 服务：行为1、行为2 · [[#证据]] · <commit>
+- [ ] 第二块 <slice> · 服务：行为3
   - [x] <a thing this slice makes true, in words>
   - [ ] <another>
 
@@ -53,6 +54,14 @@ updated: <YYYY-MM-DD>
 | 日期 | 定了什么 | 为什么 |
 |---|---|---|
 | <date> | <decision> | <reason> |
+
+## 设计
+### 第一块 <slice>
+服务：行为1、行为2
+<what changes and why, two or three sentences a product person can follow>
+不这样做：<the rejected alternative and why>
+![设计](../evidence/<date>-<slug>/design-1.png) or listed under ## 看得见 while it waits
+你确认了 <date>
 
 ## 为什么做
 <who, what problem, why now; two or three lines>
@@ -67,17 +76,23 @@ updated: <YYYY-MM-DD>
 <the one assumption most likely to sink it> · 怎么验证：<the cheapest check>
 
 ## 用户能看到的行为
-- [x] <decided behavior, in product words>
+- [x] <decided behavior, in product words; the tick means decided, not done>
 - [ ] <undecided behavior> → <the open choice>
 
 ## 证据
 ### 第一块 <slice>
+证明：行为1、行为2
 ![改之前](../evidence/<date>-<slug>/before.png)
 ![改之后](../evidence/<date>-<slug>/after.png)
 
 ## 遗留
 - <finding outside scope, with where it was seen>
 ```
+
+A bug file (`kind: bug`) replaces 为什么做 with `## 现象` (the user's words and
+screenshot, when and where it happens) and 用户能看到的行为 with `## 应该怎样`
+(what the user should see instead); its root cause is the first line under
+`## 设计`. Everything else is the same.
 
 `#box=` is the pixel rectangle on that image; the page draws it, hovering a
 named thing shows it, a click enlarges it. `## 看得见` exists only while a
