@@ -21,13 +21,11 @@ choice is obvious.
 1. Run `python3 <skill-dir>/../../scripts/ideas.py`. It reads every registered
    project's `.ship/ideas/*.md`.
 2. Present it as the script prints it: waiting on the user first, then in
-   progress, then quiet for over 7 days, then paused, then shipped in the
-   last 30 days.
-   Dropped and older shipped ideas stay hidden unless asked.
+   progress, then quiet for over 7 days, then paused, then shipped in the last
+   30 days. Dropped and older shipped ideas stay hidden unless asked.
 3. If the script reports broken index paths, show them and name the row to fix.
 4. Recommend one idea to continue: the one blocked on the user if any, else the
-   one closest to its ship bar. Tell the user to `cd` there and run
-   `/yishuship:next`.
+   one closest to its ship bar. Tell the user to `cd` there and run `/yishuship:next`.
 
 Read only. Do not edit progress files here; if one looks wrong, say so and let
 `/yishuship:next` reconcile it in that project.

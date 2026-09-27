@@ -33,8 +33,9 @@ them here, and refer to them only by skill name.
   never into a skill. A row names its moment ("when ..."), not its topic.
 - Give the model the target, not the path: each SKILL.md starts with an
   outcome contract; keep process to what changes behavior.
-- Budget: all `skills/**/*.md` together stay under 400 lines. Adding a line
-  means finding one to remove. Check with `wc -l skills/*/*.md | tail -1`.
+- Keep skills short: every line is loaded on each run, and v2 drowned in rules.
+  A new line must earn its place by changing behavior (check with `evals/`);
+  there is no fixed line count, and never compress wording just to fit one.
 - Deterministic work (listing, parsing, status, page generation, idle checks)
   goes in `scripts/`, stdlib only, no new dependencies.
 - No hooks that block the user or the agent. Information may be shown; nothing
@@ -47,13 +48,13 @@ them here, and refer to them only by skill name.
 ## Checking a change
 
 ```bash
-python3 -m py_compile scripts/ideas.py scripts/page.py scripts/check-index.py
+python3 -m py_compile scripts/*.py
 bash -n scripts/*.sh
 python3 scripts/check-index.py              # every index row still resolves
 python3 scripts/ideas.py                    # overview renders
 echo '{"cwd":"'"$PWD"'"}' | bash scripts/statusline.sh   # no line unless an idea is active here
 HOME=$(mktemp -d) bash scripts/install.sh --no-obsidian </dev/null   # fresh-user install still works
-wc -l skills/*/*.md | tail -1      # under 400
+wc -l skills/*/*.md | tail -1      # size check, not a hard limit
 ```
 
 Behavior changes to the skills are measured with the eval suite before and

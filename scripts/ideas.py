@@ -13,6 +13,7 @@ Each project keeps one progress file per idea at .ship/ideas/<slug>.md.
   ideas.py --current DIR   the active idea for DIR, as JSON
   ideas.py --status-line DIR   one line for the terminal status line (empty if none)
   ideas.py --route DIR     where /yishuship should go from DIR, as JSON
+  ideas.py --visuals DIR   the pictures under ## 看得见 of the active idea, and any file missing
 """
 from __future__ import annotations
 
@@ -276,6 +277,135 @@ def slice_things(idea: dict) -> list[tuple[bool, str]]:
     return things
 
 
+def questions(idea: dict) -> list[dict]:
+    """## 问题, one per line: `- [ ] 第一块 · <question> · 要你：<action>` (or Agent：/ 实测：…)."""
+    if not idea.get("file"):
+        return []
+    body = Path(idea["file"]).read_text(encoding="utf-8")
+    section = re.search(r"^## 问题\n(.*?)(?=^## |\Z)", body, flags=re.M | re.S)
+    found = []
+    for line in (section.group(1) if section else "").splitlines():
+        item = re.match(r"- \[([ xX])\] +(.+)", line)
+        if not item:
+            continue
+        parts = [part.strip() for part in item.group(2).split(" · ")]
+        where = parts.pop(0) if len(parts) > 1 and re.fullmatch(r"第.+?块", parts[0]) else ""
+        detail = " · ".join(parts[1:])
+        asks = re.findall(r"要你[：:]\s*([^；;]+)", detail)
+        found.append({"closed": item.group(1).lower() == "x", "slice": where, "text": parts[0],
+                      "detail": detail, "ask": asks[-1].strip() if asks else ""})
+    return found
+
+
+def done_slices(idea: dict) -> set[str]:
+    """The slices ticked off in ## 进度, by their `第…块` name."""
+    body = Path(idea["file"]).read_text(encoding="utf-8") if idea.get("file") else ""
+    section = re.search(r"^## 进度\n(.*?)(?=^## |\Z)", body, flags=re.M | re.S)
+    return set(re.findall(r"^- \[[xX]\] +(第.+?块)", section.group(1) if section else "", flags=re.M))
+
+
+def slice_names(idea: dict) -> dict[str, str]:
+    """`第一块` → what that slice is, from its line in ## 进度."""
+    body = Path(idea["file"]).read_text(encoding="utf-8") if idea.get("file") else ""
+    section = re.search(r"^## 进度\n(.*?)(?=^## |\Z)", body, flags=re.M | re.S)
+    return {m.group(1): m.group(2).split(" · ")[0].strip()
+            for m in re.finditer(r"^- \[[ xX]\] +(第.+?块)\s*(.*)$", section.group(1) if section else "", flags=re.M)}
+
+
+def evidence_note(idea: dict | None, question: str) -> str:
+    """The note under ## 证据 headed `### <question>`: what the evidence shows, one level down."""
+    if not idea or not idea.get("file"):
+        return ""
+    body = Path(idea["file"]).read_text(encoding="utf-8")
+    section = re.search(r"^## 证据\n(.*?)(?=^## |\Z)", body, flags=re.M | re.S)
+    key = question.rstrip("？?").strip()
+    for m in re.finditer(r"^### +(.+?)\n(.*?)(?=^### |\Z)", section.group(1) if section else "", flags=re.M | re.S):
+        if m.group(1).rstrip("？?").strip() == key:
+            return m.group(2).strip()
+    return ""
+
+
+def visual(ref: str) -> dict:
+    """`../evidence/x.png#box=10,20,300,200` → where the page fetches it and the box to draw."""
+    path, _, frag = ref.strip().partition("#")
+    box = re.fullmatch(r"box=(\d+),(\d+),(\d+),(\d+)", frag)
+    src = "/evidence/" + path.split("../evidence/", 1)[1] if "../evidence/" in path else ""
+    return {"src": src, "box": [int(n) for n in box.groups()] if box else None}
+
+
+def visuals(idea: dict | None) -> dict:
+    """## 看得见: a picture for every option of the pending question and for every thing it names.
+
+    `### ① <question>` then one line per option:
+        `- A ◀ 推荐 · <做法> · <做出来的样子> · 真实截图|示意|没有图 · ../evidence/<file>[#box=x0,y0,x1,y1]`
+    `### 词` then one line per thing the question names:
+        `- <词> · <它是什么> · ../evidence/<file>#box=x0,y0,x1,y1`
+    """
+    out = {"options": [], "terms": []}
+    if not idea or not idea.get("file"):
+        return out
+    body = Path(idea["file"]).read_text(encoding="utf-8")
+    section = re.search(r"^## 看得见\n(.*?)(?=^## |\Z)", body, flags=re.M | re.S)
+    for m in re.finditer(r"^### +(.+?)\n(.*?)(?=^### |\Z)", section.group(1) if section else "", flags=re.M | re.S):
+        title, lines = m.group(1).strip(), re.findall(r"^- +(.+)$", m.group(2), flags=re.M)
+        for line in lines:
+            parts = [p.strip() for p in line.split(" · ")]
+            ref = parts.pop() if parts and "../evidence/" in parts[-1] else ""
+            if title == "词":
+                if parts:
+                    out["terms"].append({"word": parts[0], "what": " · ".join(parts[1:]), **visual(ref)})
+                continue
+            head = re.match(r"([A-Z])\s*(◀\s*推荐)?", parts[0]) if parts else None
+            if not head:
+                continue
+            kind = parts.pop() if len(parts) > 1 and parts[-1] in ("真实截图", "示意", "没有图") else ("示意" if ref else "没有图")
+            if not out["options"] or out["options"][-1]["q"] != title:
+                out["options"].append({"q": title, "opts": []})
+            out["options"][-1]["opts"].append({"letter": head.group(1), "rec": bool(head.group(2)),
+                                               "label": parts[1] if len(parts) > 1 else "",
+                                               "looks": " · ".join(parts[2:]), "kind": kind, **visual(ref)})
+    return out
+
+
+def visual_problems(idea: dict | None, seen: dict, root: Path | None) -> list[str]:
+    """What stops the user from seeing the pending question: an option or a question with no picture, a missing file."""
+    if not idea or not idea.get("waiting"):
+        return []
+    body = Path(idea["file"]).read_text(encoding="utf-8")
+    section = re.search(r"^## 等你决定\n(.*?)(?=^## |\Z)", body, flags=re.M | re.S)
+    asked: dict[str, list[str]] = {}
+    for line in (section.group(1) if section else "").splitlines():
+        head = re.match(r"\s*([①-⑩])", line)
+        if head:
+            asked[head.group(1)] = []
+        opt = re.match(r"\s*[├└]─\s*([A-Z])\b", line)
+        if opt and asked:
+            asked[list(asked)[-1]].append(opt.group(1))
+    problems = []
+    for mark, letters in asked.items():
+        group = next((g for g in seen["options"] if g["q"].startswith(mark)), None)
+        if group is None:
+            problems.append(f"{mark}: no `### {mark} …` under ## 看得见")
+            continue
+        have = {o["letter"]: o for o in group["opts"]}
+        for letter in letters:
+            if letter not in have:
+                problems.append(f"{mark} {letter}: no line for this option")
+            elif not have[letter]["src"]:
+                problems.append(f"{mark} {letter}: no picture (a screenshot, or a 示意 HTML built from real content)")
+    block = section.group(1) if section else ""
+    for term in seen["terms"]:
+        if term["word"] not in block:
+            problems.append(f"词 {term['word']}: not in the question as written; name things the question actually says")
+    if asked and not seen["terms"]:
+        problems.append("### 词 is empty: box every on-screen thing the question names")
+    for where, src in ([(f'{g["q"]} {o["letter"]}', o["src"]) for g in seen["options"] for o in g["opts"]]
+                       + [(t["word"], t["src"]) for t in seen["terms"]]):
+        if src and root and not (root / ".ship" / "evidence" / src[len("/evidence/"):]).is_file():
+            problems.append(f"{where}: {src} is missing")
+    return problems
+
+
 def doing(idea: dict) -> tuple[str, str, int, int]:
     """From `now` (`<step> · <thing>`): the step, the thing, its place among the slice's things, and how many."""
     step, _, thing = idea.get("now", "").partition("·")
@@ -394,6 +524,12 @@ def main(argv: list[str]) -> int:
         columns = os.environ.get("COLUMNS", "")
         if idea:
             print(status_line(idea, int(columns) if columns.isdigit() else None))
+    elif argv[:1] == ["--visuals"] and len(argv) == 2:
+        idea, root = current(argv[1]), project_root(argv[1])
+        seen = visuals(idea)
+        problems = visual_problems(idea, seen, root)
+        print(json.dumps({**seen, "problems": problems}, ensure_ascii=False, indent=2))
+        return 1 if problems else 0
     elif argv[:1] == ["--route"] and len(argv) == 2:
         print(json.dumps(route(argv[1]), ensure_ascii=False, indent=2))
     elif argv == ["--json"]:

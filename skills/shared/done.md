@@ -35,9 +35,8 @@ bash <skill-dir>/../../scripts/show-evidence.sh "<title>" \
   "<after.png>|改之后 · <what changed>"
 ```
 
-It writes a temporary page and opens it beside the terminal (cmux split, or the
-default browser). Once the user has looked, close it with the command the script
-prints. Keep a copy of the images under `.ship/evidence/<date>-<slug>/`.
+It opens a temporary page beside the terminal; once the user has looked, close
+it with the command it prints. Keep the images in `.ship/evidence/<date>-<slug>/`.
 
 ## Layout
 

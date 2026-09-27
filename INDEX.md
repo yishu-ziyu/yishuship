@@ -25,6 +25,7 @@ entries this slice used and what the index lacked, and at which level.
 | Someone points at a URL or PDF | `skill:read` |
 | Before a release, publish, deploy, or merge to main | `skill:check` |
 | Verifying visible behavior in a running macOS app | `docs/real-app.md` |
+| Showing structure: behaviors that cross screens or branch, or the shape of a change before building | `docs/diagrams.md` |
 
 ## Keeping it true
 

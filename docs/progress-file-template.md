@@ -30,6 +30,19 @@ updated: <YYYY-MM-DD>
 ## 等你决定
 <the question block exactly as last shown to the user, in a ``` fence; or 无>
 
+## 看得见
+### ① <the question, as in the block above>
+- A ◀ 推荐 · <option> · <what the user will see under it> · 示意 · ../evidence/<date>-<slug>/q1-a.html
+- B · <option> · <what the user will see> · 真实截图 · ../evidence/<date>-<slug>/now.png#box=<x0>,<y0>,<x1>,<y1>
+### 词
+- <a thing the question names, e.g. 问答面板> · <what it is, in words> · ../evidence/<date>-<slug>/now.png#box=<x0>,<y0>,<x1>,<y1>
+
+## 问题
+- [ ] 第一块 · <what is not yet known, asked as a question> · 要你：<the one thing the user would do to close it>
+- [ ] 第二块 · <question> · Agent：<what you will try to close it>
+- [ ] 第一块 · <question> · 模拟过：<what the simulation showed>；要你：<the real check still needed>
+- [x] 第一块 · <question> · 实测：<the evidence in product words, with its number>
+
 ## 进度
 - [x] 第一块 <slice> · [[#证据]] · <commit>
 - [ ] 第二块 <slice>
@@ -65,6 +78,10 @@ updated: <YYYY-MM-DD>
 ## 遗留
 - <finding outside scope, with where it was seen>
 ```
+
+`#box=` is the pixel rectangle on that image; the page draws it, hovering a
+named thing shows it, a click enlarges it. `## 看得见` exists only while a
+question waits.
 
 Evidence images live in `<project>/.ship/evidence/`; link them relatively
 (`../evidence/...`) so they render in the repository, and in Obsidian when

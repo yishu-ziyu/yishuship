@@ -6,8 +6,7 @@ when_to_use: "我有个想法, 想做个, 新功能, 新产品, 能不能做一�
 
 # yishuship: idea
 
-Turn a raw idea into something the user can decide on, and make it impossible
-to lose.
+Turn a raw idea into something the user can decide on and cannot lose.
 
 ## Outcome Contract
 
@@ -27,8 +26,7 @@ to lose.
 
 ## Shaping
 
-1. **Place it.** Which project does it belong to, or is it a new one? Find the
-   repo yourself; ask only if two places are equally plausible.
+1. **Place it**: find its project (or a new one) yourself; ask only if two fit.
 2. **Understand before proposing.** Ask at most three questions per round,
    each with your recommended answer. Anything the repo, the product, or a
    public source can answer, answer yourself. Stop asking once the behaviors
@@ -38,7 +36,8 @@ to lose.
    one slice as the limit. Record it in `appetite` as a limit, not an estimate.
 3. **Write behaviors in product words**: `用户<做什么> → 看到<什么>`. Each one
    must be checkable in the running product. Mark which are settled and which
-   still have a choice for the user.
+   still have a choice for the user. Behaviors that cross screens or branch:
+   draw them, per the index row for showing structure.
 4. **Challenge it once.** Name the minimal version in one line. If an existing
    feature, tool, or something the user already has covers most of it, say so
    plainly; recommending not to build is a valid outcome. Name the one
@@ -56,9 +55,8 @@ to lose.
 
 ## Hard Rules
 
-- Technical design only as deep as it changes a user decision; the rest
-  belongs to `/yishuship:next`, or to the index entry for choosing approaches
-  (`<skill-dir>/../../INDEX.md`) when a slice needs a plan.
+- Technical design only as deep as it changes a user decision; the rest belongs
+  to `/yishuship:next`, or to the index row for choosing approaches.
 - No placeholders ("待定", "later", "选定后填写") anywhere in the progress
   file. Where a choice is still open, write it for the recommended option and
   mark it as pending; what cannot be settled is a question for the user.

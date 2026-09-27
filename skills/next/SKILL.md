@@ -17,8 +17,7 @@ one idea one step and leaves the progress file true.
   2. the user asked for a decision only they can make;
   3. the idea meets its ship bar and users can use it.
 - Done when: the progress file reflects reality and names exactly one next step.
-- Evidence: see `../shared/done.md`. Tests and builds support the claim; the
-  running product proves it.
+- Evidence: `../shared/done.md`; the running product proves it, tests support.
 - Output: the done report and/or the decision question.
 
 ## Every run
@@ -26,9 +25,8 @@ one idea one step and leaves the progress file true.
 1. **Find the idea.** Read `.ship/ideas/*.md` in the current project. Several
    active: take the most recently updated that is not paused, and name it. None:
    say so and suggest `/yishuship:idea`.
-2. **Reconcile.** Check git log, tags, the working tree, and whatever the file
-   claims shipped. Where the file and reality disagree, reality wins; fix the
-   file and tell the user what changed.
+2. **Reconcile** with git log, tags and the working tree. Where the file and
+   reality disagree, reality wins: fix the file and say what changed.
 3. **Waiting on the user?** If `waiting` is set and not answered in this
    conversation, ask that one question again and stop.
 
@@ -44,7 +42,8 @@ one idea one step and leaves the progress file true.
    index rows at three levels: `<skill-dir>/../../INDEX.md` (general),
    `~/.yishuship/INDEX.md` (the user's, cross-project), and
    `<project>/.ship/INDEX.md` (this project only). Before building, tell the
-   user in one line which rows matched and what each gave, or that none did.
+   user in one line which rows matched and what each gave, or that none did,
+   then show the shape of the change (index row for showing structure).
    The matched entries decide the method, including whether test-first is
    worth it; a small, obvious change does not earn a whole method.
 7. **First green is not done.** Run it on real data, not only your fixtures;
@@ -54,9 +53,6 @@ one idea one step and leaves the progress file true.
    `../shared/done.md`. Show images with the evidence script.
 9. **Report** per `../shared/done.md`, then update the progress file: slice
    done with evidence, next slice, `waiting`, `updated`.
-
-Commits and pushes happen only after the user says so for this slice; ask
-together with the next decision.
 
 ## Shipping
 
@@ -80,5 +76,4 @@ the user wants another day: that is when `/yishuship` asks whether it worked.
 - Never widen scope silently. Anything found outside the slice goes to 遗留 or
   becomes its own idea.
 - Never touch, stash, or move the user's uncommitted work.
-- Stop only at a real decision, a real blocker, or the end of the slice; say
-  which.
+- Stop only at a real decision, a real blocker, or the end of a slice; say which.
