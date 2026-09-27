@@ -30,6 +30,7 @@ CONFIG = HOME / "config"
 ACTIVE = {"shaping", "building", "waiting", "shipping"}
 QUIET_DAYS = 7
 RECENT_SHIP_DAYS = 30
+STALE_MINUTES = 15  # `now` unchanged this long may be left over from a stopped run
 
 
 def read_front_matter(path: Path) -> dict[str, str]:
@@ -257,8 +258,16 @@ def clip(text: str, limit: int) -> str:
     return kept + "…"
 
 
+def quiet_for(idea: dict) -> str:
+    """How long the progress file has gone unwritten, once that is long enough to doubt `now`."""
+    minutes = int((dt.datetime.now().timestamp() - Path(idea["file"]).stat().st_mtime) // 60)
+    if minutes < STALE_MINUTES:
+        return ""
+    return f"{minutes} 分钟前" if minutes < 60 else f"{minutes // 60} 小时前"
+
+
 def status_line(idea: dict, columns: int | None = None) -> str:
-    """State first and in color, then which idea, then what to type.
+    """State first and in color, then which idea, then what it is doing now or what to type.
 
     Uses the idea's short name. When COLUMNS says the terminal is too narrow,
     the tail goes first (next step, then the name); the state is never cut.
@@ -272,11 +281,13 @@ def status_line(idea: dict, columns: int | None = None) -> str:
         action = "打 /yishuship 查看"
     elif idea.get("status") == "review":
         color, state, action = cyan, "● 该回头看", "打 /yishuship 查看"
-    elif idea.get("status") == "shipping":
-        color, state, action = cyan, "● 准备上线", "打 /yishuship 继续"
     else:
-        color, state = green, "● 在做"
-        action, hint = idea.get("slice") or "打 /yishuship 继续", not idea.get("slice")
+        shipping = idea.get("status") == "shipping"
+        color, state = (cyan, "● 准备上线") if shipping else (green, "● 在做")
+        doing = idea.get("now") or (None if shipping else idea.get("slice"))
+        action, hint = doing or "打 /yishuship 继续", not doing
+        if idea.get("now") and (age := quiet_for(idea)):
+            state += f" · {age}"  # part of the state, so a narrow terminal never hides it
     if columns:
         room = columns - 2 - width(state) - 2  # 2 for a margin; the state always fits whole
         if width(name) + 2 + width(action) > room:

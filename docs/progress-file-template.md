@@ -15,6 +15,7 @@ project: <project name>
 status: shaping | building | waiting | shipping | shipped | paused | dropped
 waiting: <the open questions in one short line, separated by ；, or empty>
 slice: <current slice, short: the status line shows it; or empty>
+now: <while an agent works: <step> · 行为<n> · 1✓ 2… 3○; empty otherwise>
 next: <exactly one next step in one line>
 ship_bar: <what "users can use it" means here, or empty until asked>
 appetite: <how much the user will spend: slices or days; empty until asked>

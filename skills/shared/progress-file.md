@@ -26,5 +26,3 @@ before creating a file or changing its structure.
   `## 证据`; the user should not have to open a folder.
 - Register a new project once:
   `python3 <skill-dir>/../../scripts/ideas.py --register <project-root>`.
-  If `~/.yishuship/config` sets `obsidian_dir`, it also links the project's
-  ideas and evidence there.
