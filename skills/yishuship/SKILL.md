@@ -40,8 +40,10 @@ Run the route script first. Then:
      whether that happened, and offer 继续做 / 就此打住 / 砍掉 with a
      recommendation, in the asking layout. Record the answer in 决定 and set
      `reviewed`; 继续做 reopens it with a new slice;
-   - `overview` → `../ideas/SKILL.md`, then offer to start one with
-     `/yishuship <一句话>`.
+   - `start` → no idea in progress in this project: say so, read its live
+     state (branch, uncommitted work, paused ideas here), and offer to start
+     one here with `/yishuship <一句话>`. Never recommend other projects' ideas;
+   - `overview` → typed outside any project: `../ideas/SKILL.md`.
 
 When `other_active` is not empty, the first line names the idea you picked
 (the most recently updated) and that the user can say "换成 <想法>" to switch.

@@ -178,11 +178,14 @@ def route(directory: str) -> dict:
     step: "ask"      the current idea waits on the user
           "review"   a shipped idea is due for a look back at whether it worked
           "continue" the current idea has work to do
-          "overview" no idea in progress here; show every idea
+          "start"    inside a project (progress folder or git repo) with no idea
+                     in progress; talk about this project only
+          "overview" outside any project; show every idea
     Free text the user typed is judged by the skill, not here.
     """
     here = Path(directory).expanduser().resolve()
     root = next((r for r in (here, *here.parents) if (r / ".ship" / "ideas").is_dir()), None)
+    root = root or next((r for r in (here, *here.parents) if (r / ".git").exists()), None)
     ideas = load(root) if root else []
     active = sorted((i for i in ideas if i.get("status") in ACTIVE),
                     key=lambda i: (i.get("updated", ""), i["file"]), reverse=True)
@@ -193,7 +196,7 @@ def route(directory: str) -> dict:
     elif due:
         step, current_idea = "review", due[0]
     elif current_idea is None:
-        step = "overview"
+        step = "start" if root else "overview"
     else:
         step = "continue"
     brief = lambda i: {k: i.get(k, "") for k in ("idea", "status", "waiting", "slice", "file", "updated")}
