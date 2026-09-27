@@ -73,9 +73,10 @@ the user wants another day: that is when `/yishuship` asks whether it worked.
 - One slice per run unless the user says to keep going.
 - When the work reaches the idea's `appetite`, stop and ask whether it is
   still worth more; never extend it silently.
-- Keep `now` in front matter true while you work: `<step> · 行为<n> · 1✓ 2… 3○`,
-  step one of 定行为 在写 在验证 独立检查 汇报. Rewrite it at every change of
-  step; empty it before you stop. The status line shows it.
+- List the slice's things (its behaviors, in words) as checkboxes indented
+  under it in 进度. While you work, `now` says `<step> · <that thing, copied>`,
+  step one of 定行为 在写 在验证 独立检查 汇报; `next` says when and why you
+  will next need the user. Rewrite both at every change; empty `now` before you stop.
 - Never widen scope silently. Anything found outside the slice goes to 遗留 or
   becomes its own idea.
 - Never touch, stash, or move the user's uncommitted work.

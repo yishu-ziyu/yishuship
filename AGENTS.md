@@ -47,7 +47,7 @@ them here, and refer to them only by skill name.
 ## Checking a change
 
 ```bash
-python3 -m py_compile scripts/ideas.py scripts/check-index.py
+python3 -m py_compile scripts/ideas.py scripts/page.py scripts/check-index.py
 bash -n scripts/*.sh
 python3 scripts/check-index.py              # every index row still resolves
 python3 scripts/ideas.py                    # overview renders

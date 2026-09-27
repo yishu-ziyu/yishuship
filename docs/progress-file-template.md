@@ -15,8 +15,8 @@ project: <project name>
 status: shaping | building | waiting | shipping | shipped | paused | dropped
 waiting: <the open questions in one short line, separated by ；, or empty>
 slice: <current slice, short: the status line shows it; or empty>
-now: <while an agent works: <step> · 行为<n> · 1✓ 2… 3○; empty otherwise>
-next: <exactly one next step in one line>
+now: <while an agent works: <step> · <the thing it is on, in words>; empty otherwise>
+next: <exactly one next step in one line; while working, when and why the user is needed next>
 ship_bar: <what "users can use it" means here, or empty until asked>
 appetite: <how much the user will spend: slices or days; empty until asked>
 shipped: <YYYY-MM-DD, when users could use it; empty until then>
@@ -33,6 +33,8 @@ updated: <YYYY-MM-DD>
 ## 进度
 - [x] 第一块 <slice> · [[#证据]] · <commit>
 - [ ] 第二块 <slice>
+  - [x] <a thing this slice makes true, in words>
+  - [ ] <another>
 
 ## 决定
 | 日期 | 定了什么 | 为什么 |

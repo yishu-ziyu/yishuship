@@ -258,6 +258,33 @@ def clip(text: str, limit: int) -> str:
     return kept + "…"
 
 
+def slice_things(idea: dict) -> list[tuple[bool, str]]:
+    """The current slice's things: the indented checklist under its line in ## 进度."""
+    key = re.match(r"[\s\"']*(第.+?块)", idea.get("slice", ""))
+    if not key or not idea.get("file"):
+        return []
+    body = Path(idea["file"]).read_text(encoding="utf-8")
+    section = re.search(r"^## 进度\n(.*?)(?=^## |\Z)", body, flags=re.M | re.S)
+    things, inside = [], False
+    for line in (section.group(1) if section else "").splitlines():
+        top = re.match(r"- \[[ xX]\] +(.+)", line)
+        sub = re.match(r"\s+- \[([ xX])\] +(.+)", line)
+        if top:
+            inside = top.group(1).lstrip("\"'").startswith(key.group(1))
+        elif sub and inside:
+            things.append((sub.group(1).lower() == "x", sub.group(2).strip()))
+    return things
+
+
+def doing(idea: dict) -> tuple[str, str, int, int]:
+    """From `now` (`<step> · <thing>`): the step, the thing, its place among the slice's things, and how many."""
+    step, _, thing = idea.get("now", "").partition("·")
+    step, thing = step.strip(), thing.strip()
+    things = slice_things(idea)
+    place = next((n for n, (_, text) in enumerate(things, 1) if thing and (thing in text or text in thing)), 0)
+    return step, thing, place, len(things)
+
+
 def quiet_for(idea: dict) -> str:
     """How long the progress file has gone unwritten, once that is long enough to doubt `now`."""
     minutes = int((dt.datetime.now().timestamp() - Path(idea["file"]).stat().st_mtime) // 60)
@@ -284,8 +311,12 @@ def status_line(idea: dict, columns: int | None = None) -> str:
     else:
         shipping = idea.get("status") == "shipping"
         color, state = (cyan, "● 准备上线") if shipping else (green, "● 在做")
-        doing = idea.get("now") or (None if shipping else idea.get("slice"))
-        action, hint = doing or "打 /yishuship 继续", not doing
+        now = idea.get("now")
+        if now:
+            step, thing, place, total = doing(idea)
+            now = " · ".join(x for x in (step, thing, f"{place}/{total}" if place else "") if x)
+        text = now or (None if shipping else idea.get("slice"))
+        action, hint = text or "打 /yishuship 继续", not text
         if idea.get("now") and (age := quiet_for(idea)):
             state += f" · {age}"  # part of the state, so a narrow terminal never hides it
     if columns:

@@ -19,7 +19,9 @@ remember which.
 
 ## Route
 
-Run the route script first. Then:
+Run the route script first. If it names a `current` idea, also run
+`python3 <skill-dir>/../../scripts/page.py "$PWD"`: it opens the page beside
+the terminal that follows the progress file (once; it says if already open). Then:
 
 1. **The user typed a sentence after the command.** Judge what it is:
    - an answer to the `waiting` question of the current idea (for example
@@ -48,8 +50,5 @@ Run the route script first. Then:
 When `other_active` is not empty, the first line names the idea you picked
 (the most recently updated) and that the user can say "换成 <想法>" to switch.
 
-Write to the user in their language: the language of their message, or, when
-they typed only the command, the language of the progress file.
-
-Read the chosen step's SKILL.md in full before acting on it; this file only
-decides which one.
+Write in the user's language: their message's, else the progress file's.
+Read the chosen step's SKILL.md in full before acting on it.
