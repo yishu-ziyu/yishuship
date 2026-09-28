@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""A page beside the terminal: does the user need to act, what the agent is doing and for what, what comes next.
+"""A page beside the terminal: does the user need to act, what the agent is doing and for what, what comes next;
+below it, the project as a whole from .ship/PROJECT.md.
 
   page.py DIR           open the page for the project containing DIR; reuses the
                         one already open, reopens it if the user closed it
@@ -33,7 +34,7 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from ideas import (current, doing, done_slices, evidence_note, project_root, questions, quiet_for,  # noqa: E402
+from ideas import (_section, current, doing, done_slices, evidence_note, project_file, project_root, questions, quiet_for,  # noqa: E402
                    slice_names, slice_things, trace, visuals)
 
 POLL_MS = 2000
@@ -48,7 +49,7 @@ def waiting_block(idea: dict) -> str:
     if not idea.get("waiting"):
         return ""
     text = Path(idea["file"]).read_text(encoding="utf-8")
-    section = re.search(r"^## 等你决定\n(.*?)(?=^## |\Z)", text, flags=re.M | re.S)
+    section = re.search(r"^## 等你决定\n(.*?)(?=^#{1,2} |\Z)", text, flags=re.M | re.S)
     text = section.group(1) if section else ""
     fence = re.search(r"```[^\n]*\n(.*?)```", text, flags=re.S)
     block = fence.group(1).rstrip() if fence else (text.strip() or idea["waiting"])  # an unfenced block still counts
@@ -63,8 +64,59 @@ def esc(text: str) -> str:
     return html.escape(text or "")
 
 
-def body(idea: dict | None) -> str:
-    return main_body(idea) + (trace_view(idea) if idea else "")
+def body(root: Path) -> str:
+    idea = current(str(root))
+    return main_body(idea) + (trace_view(idea) if idea else "") + project_view(root)
+
+
+def project_view(root: Path) -> str:
+    """The project as a whole, from .ship/PROJECT.md: what it is, can do, is building, still owes."""
+    file = project_file(root)
+    if not file.exists():
+        return ""
+    text = file.read_text(encoding="utf-8")
+    items = lambda name: [m.group(1).strip() for m in re.finditer(r"^- (.+)$", _section(text, name), flags=re.M)]
+    plain = lambda name: re.sub(r"<!--.*?-->", "", _section(text, name), flags=re.S).strip()
+
+    def column(title: str, rows: list[str], empty: str, show: int = 8) -> str:
+        cells = []
+        for row in rows:
+            split = re.search(r" · (来自「.*)$", row)  # generated rows end with where they came from
+            main, rest = (row[:split.start()], split.group(1)) if split else row.partition(" · ")[::2]
+            rest = re.sub(r"\[([^\]]+)\]\([^)]+\)", "", rest).strip(" ·")
+            cells.append(f'<li>{inline(main)}{f"<div class=sub>{esc(rest)}</div>" if rest else ""}</li>')
+        more = (f'<details><summary>还有 {len(cells) - show} 条</summary><ul>{"".join(cells[show:])}</ul></details>'
+                if len(cells) > show else "")
+        return (f'<div class="blk"><h3>{title}</h3><div class="cnt">{len(rows)}</div>'
+                f'<ul class="pl">{"".join(cells[:show]) or f"<li class=none>{empty}</li>"}</ul>{more}</div>')
+
+    what = plain("这是什么")
+    built = plain("怎么搭的")
+    fence = re.search(r"```[^\n]*\n(.*?)```", built, flags=re.S)
+    built_html = f"<pre>{esc(fence.group(1).rstrip())}</pre>" if fence else (f"<p>{inline(built)}</p>" if built else "")
+    screens = ""
+    for row in items("界面现在长什么样"):
+        found = re.search(r"screens/[^\s·)]+", row)
+        ref = found.group(0) if found else ""
+        label = re.sub(r"\s*·?\s*" + re.escape(ref) + r"\s*·?\s*", " · ", row).strip(" ·") if ref else row
+        target = root / ".ship" / ref
+        if ref.endswith(".txt") and target.is_file():
+            media = f"<pre class=out>{esc(target.read_text(encoding='utf-8', errors='replace').rstrip())}</pre>"
+        elif ref and target.is_file():
+            media = f'<div class="fig" data-box=""><img src="/{esc(ref)}" alt=""></div>'
+        else:
+            media = '<div class="nopic">没有截图</div>'
+        screens += f'<div class="scr">{media}<div class="kind">{esc(label)}</div></div>'
+    return (f'<section class="proj"><p class="which">项目 · {esc(root.name)}</p>'
+            + (f'<p class="what">{inline(what)}</p>' if what else "")
+            + '<div class="cols">'
+            + column("现在能做什么", items("现在能做什么"), "还没有被证据证明过的行为")
+            + column("想法", items("想法"), "还没有想法")
+            + column("待办和技术债", items("待办和技术债"), "无")
+            + "</div>"
+            + (f'<h3 class="oq">怎么搭的</h3>{built_html}' if built_html else "")
+            + (f'<h3 class="oq">界面现在长什么样</h3><div class="opts">{screens}</div>' if screens else "")
+            + "</section>")
 
 
 def main_body(idea: dict | None) -> str:
@@ -334,7 +386,12 @@ pre{{font:14px/1.5 Menlo,"PingFang SC",monospace;white-space:pre;overflow-x:auto
 .note img{{width:100%;height:320px;object-fit:cover;object-position:left top;border:1px solid #d8d2c5}} .note figcaption{{color:#8b867c;font-size:12px}}
 .note table{{border-collapse:collapse;margin:4px 0 16px;font-size:14px}} .note td{{border-top:1px solid #d8d2c5;padding:5px 14px 5px 0}}
 @media (prefers-reduced-motion:reduce){{#sheet{{transition:none}}}}
-</style></head><body><main id="m">{body(current(str(root)))}</main><div id="scrim"></div><div id="sheet"></div>
+.proj{{margin-top:56px;padding-top:26px;border-top:1px solid #d8d2c5}} .what{{max-width:820px;margin-bottom:22px}}
+ul.pl{{margin:0}} ul.pl li{{color:#1b1b1a;margin:0;padding:7px 0;border-top:1px solid #e3ddd0;font-size:14px;line-height:1.5}}
+ul.pl .sub{{color:#8b867c;font-size:12px}} ul.pl li.none{{color:#b3ab9c}} .blk details summary{{cursor:pointer;color:#8b867c;font-size:13px;padding:6px 0}}
+.proj pre{{font-size:13px;margin:8px 0 0}} pre.out{{background:#fffdf8;border:1px solid #d8d2c5;border-radius:6px;padding:10px;margin:0;font-size:12.5px}}
+.scr .fig img{{max-height:340px;object-fit:cover;object-position:left top}}
+</style></head><body><main id="m">{body(root)}</main><div id="scrim"></div><div id="sheet"></div>
 <div id="tip"></div><div id="lb"><div class="bg"></div><div class="fig"><img alt=""><i class="box"></i></div><iframe sandbox></iframe><p></p></div><script>
 function fit(root){{root.querySelectorAll('.frame').forEach(f=>{{const k=f.clientWidth/900;f.querySelector('iframe').style.transform=`scale(${{k}})`;f.style.height=Math.round(900*k*.6)+'px'}})}}
 addEventListener('resize',()=>fit(document));
@@ -393,15 +450,16 @@ def serve(root: Path) -> None:
                 out = json.dumps({"root": str(root), "page_idle": time.time() - polled[0]}).encode()
             elif self.path.startswith("/drill?i="):
                 out = drill(current(str(root)), int(self.path.split("=", 1)[1] or -1)).encode()
-            elif self.path.startswith("/evidence/"):
-                folder = (root / ".ship" / "evidence").resolve()
-                wanted = (folder / urllib.parse.unquote(self.path[len("/evidence/"):])).resolve()
+            elif self.path.startswith(("/evidence/", "/screens/")):
+                name = self.path.split("/")[1]
+                folder = (root / ".ship" / name).resolve()
+                wanted = (folder / urllib.parse.unquote(self.path[len(name) + 2:])).resolve()
                 if not (wanted.is_relative_to(folder) and wanted.is_file()):
                     self.send_error(404)
                     return
                 out, kind = wanted.read_bytes(), mimetypes.guess_type(wanted.name)[0] or "application/octet-stream"
             else:
-                out = (body(current(str(root))) if self.path == "/body" else page(root)).encode()
+                out = (body(root) if self.path == "/body" else page(root)).encode()
             self.send_response(200)
             self.send_header("Content-Type", kind)
             self.send_header("Cache-Control", "no-store")
@@ -439,7 +497,7 @@ def running(root: Path) -> tuple[int, float] | None:
 
 def open_page(directory: str) -> int:
     root = project_root(directory)
-    if root is None or current(str(root)) is None or os.environ.get("YISHUSHIP_NO_PAGE"):
+    if root is None or (current(str(root)) is None and not project_file(root).exists()) or os.environ.get("YISHUSHIP_NO_PAGE"):
         return 0
     live = running(root)
     if live is None:

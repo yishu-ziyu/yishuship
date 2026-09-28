@@ -16,6 +16,10 @@
   the report what it found. If no subagent can run, say the check was yours.
 - **Each decided behavior gets its own line** with the evidence that proves it,
   and that evidence note in the progress file says `证明：行为N`.
+- **Earlier behaviors still hold**: each earlier slice's `复查` was run again
+  after this change, with its result. Each new evidence note ends with
+  `复查：<one command, or a few steps on the running product>` that proves its
+  behaviors again, so the next slice can run it.
 - **What was not verified**, stated plainly with the reason, in its own block.
   A missing layer is a gap, not an implied pass.
 - **Commands actually run** this session back every "passes" claim. If evidence
@@ -56,6 +60,10 @@ it with the command it prints. Keep the images in `.ship/evidence/<date>-<slug>/
         <evidence>
 
 行为 2 ✓ ...
+
+
+之前的行为
+  行为 N ✓ 还在 · <复查 run, its result>
 
 
 没验证到的

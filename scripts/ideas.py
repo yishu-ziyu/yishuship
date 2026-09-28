@@ -15,6 +15,7 @@ Each project keeps one progress file per idea at .ship/ideas/<slug>.md.
   ideas.py --route DIR     where /yishuship should go from DIR, as JSON
   ideas.py --visuals DIR   the pictures under ## 看得见 of the active idea, and any file missing
   ideas.py --trace DIR     why → behaviors → design → slices → evidence of the active idea, and the gaps
+  ideas.py --project DIR   create .ship/PROJECT.md if missing, regenerate its lower half, list what is missing
 """
 from __future__ import annotations
 
@@ -206,6 +207,7 @@ def route(directory: str) -> dict:
     return {
         "step": step,
         "project_root": str(root) if root else None,
+        "project_file": str(project_file(root)) if root and project_file(root).exists() else None,
         "current": brief(current_idea) if current_idea else None,
         "other_active": [brief(i) for i in active[1:]],
         "paused": [brief(i) for i in ideas if i.get("status") == "paused"],
@@ -266,7 +268,7 @@ def slice_things(idea: dict) -> list[tuple[bool, str]]:
     if not key or not idea.get("file"):
         return []
     body = Path(idea["file"]).read_text(encoding="utf-8")
-    section = re.search(r"^## 进度\n(.*?)(?=^## |\Z)", body, flags=re.M | re.S)
+    section = re.search(r"^## 进度\n(.*?)(?=^#{1,2} |\Z)", body, flags=re.M | re.S)
     things, inside = [], False
     for line in (section.group(1) if section else "").splitlines():
         top = re.match(r"- \[[ xX]\] +(.+)", line)
@@ -283,7 +285,7 @@ def questions(idea: dict) -> list[dict]:
     if not idea.get("file"):
         return []
     body = Path(idea["file"]).read_text(encoding="utf-8")
-    section = re.search(r"^## 问题\n(.*?)(?=^## |\Z)", body, flags=re.M | re.S)
+    section = re.search(r"^## 问题\n(.*?)(?=^#{1,2} |\Z)", body, flags=re.M | re.S)
     found = []
     for line in (section.group(1) if section else "").splitlines():
         item = re.match(r"- \[([ xX])\] +(.+)", line)
@@ -301,14 +303,14 @@ def questions(idea: dict) -> list[dict]:
 def done_slices(idea: dict) -> set[str]:
     """The slices ticked off in ## 进度, by their `第…块` name."""
     body = Path(idea["file"]).read_text(encoding="utf-8") if idea.get("file") else ""
-    section = re.search(r"^## 进度\n(.*?)(?=^## |\Z)", body, flags=re.M | re.S)
+    section = re.search(r"^## 进度\n(.*?)(?=^#{1,2} |\Z)", body, flags=re.M | re.S)
     return set(re.findall(r"^- \[[xX]\] +(第.+?块)", section.group(1) if section else "", flags=re.M))
 
 
 def slice_names(idea: dict) -> dict[str, str]:
     """`第一块` → what that slice is, from its line in ## 进度."""
     body = Path(idea["file"]).read_text(encoding="utf-8") if idea.get("file") else ""
-    section = re.search(r"^## 进度\n(.*?)(?=^## |\Z)", body, flags=re.M | re.S)
+    section = re.search(r"^## 进度\n(.*?)(?=^#{1,2} |\Z)", body, flags=re.M | re.S)
     return {m.group(1): m.group(2).split(" · ")[0].strip()
             for m in re.finditer(r"^- \[[ xX]\] +(第.+?块)\s*(.*)$", section.group(1) if section else "", flags=re.M)}
 
@@ -318,7 +320,7 @@ def evidence_note(idea: dict | None, question: str) -> str:
     if not idea or not idea.get("file"):
         return ""
     body = Path(idea["file"]).read_text(encoding="utf-8")
-    section = re.search(r"^## 证据\n(.*?)(?=^## |\Z)", body, flags=re.M | re.S)
+    section = re.search(r"^## 证据\n(.*?)(?=^#{1,2} |\Z)", body, flags=re.M | re.S)
     key = question.rstrip("？?").strip()
     for m in re.finditer(r"^### +(.+?)\n(.*?)(?=^### |\Z)", section.group(1) if section else "", flags=re.M | re.S):
         if m.group(1).rstrip("？?").strip() == key:
@@ -330,7 +332,7 @@ SERVES = re.compile(r"(?:服务|证明)[：:]\s*((?:行为\d+[、,，\s]*)+)")
 
 
 def _section(body: str, name: str) -> str:
-    found = re.search(rf"^## {name}\n(.*?)(?=^## |\Z)", body, flags=re.M | re.S)
+    found = re.search(rf"^## {name}\n(.*?)(?=^#{{1,2}} |\Z)", body, flags=re.M | re.S)
     return found.group(1) if found else ""
 
 
@@ -360,16 +362,21 @@ def trace(idea: dict | None) -> dict:
         name = m.group(2).split(" · ")[0].strip()
         out["slices"].append({"title": name, "done": m.group(1) != " ", "serves": _serves(m.group(2))})
     for m in re.finditer(r"^### +(.+?)\n(.*?)(?=^### |\Z)", _section(body, "证据"), flags=re.M | re.S):
-        out["evidence"].append({"title": m.group(1).strip(), "proves": _serves(m.group(2) + m.group(1))})
+        recheck = re.search(r"^复查[：:]\s*(.+)$", m.group(2), flags=re.M)
+        out["evidence"].append({"title": m.group(1).strip(), "proves": _serves(m.group(2) + m.group(1)),
+                                "recheck": recheck.group(1).strip() if recheck else ""})
     ids = {b["id"] for b in out["behaviors"]}
     for b in out["behaviors"]:
         b["designs"] = [d["title"] for d in out["designs"] if b["id"] in d["serves"]]
         b["slices"] = [s["title"] for s in out["slices"] if b["id"] in s["serves"]]
         b["proven_by"] = [e["title"] for e in out["evidence"] if b["id"] in e["proves"]]
+        b["rechecks"] = [e["recheck"] for e in out["evidence"] if b["id"] in e["proves"] and e["recheck"]]
         done_slice = any(s["done"] for s in out["slices"] if b["id"] in s["serves"])
         b["built"] = done_slice
         if done_slice and not b["proven_by"]:
             out["gaps"].append(f"{b['id']}：服务它的任务做完了，但没有证据写着“证明：{b['id']}”")
+        elif b["proven_by"] and not b["rechecks"]:
+            out["gaps"].append(f"{b['id']}：证据没写“复查：”，下一块没法再验一遍它还在")
     linked = [("设计", d["title"], d["serves"]) for d in out["designs"]] + \
              [("进度", s["title"], s["serves"]) for s in out["slices"]]
     if any(serves for _, _, serves in linked):  # an older file without links is not flagged line by line
@@ -381,6 +388,83 @@ def trace(idea: dict | None) -> dict:
             if not d["confirmed"]:
                 out["gaps"].append(f"设计「{d['title']}」你还没确认")
     return out
+
+
+PROJECT_START, PROJECT_END = "<!-- 以下由 ideas.py --project 生成，不要手改 -->", "<!-- /生成 -->"
+PROJECT_HAND = [
+    ("这是什么", "给谁、解决什么，两三行；写明出自哪份文件"),
+    ("怎么搭的", "一张图：有哪几部分、怎么互相调用；哪一块改了结构就更新"),
+    ("界面现在长什么样", "每个界面一行：- <界面> · screens/<名字>.png · <拍摄日期>；截图来自正在运行的产品"),
+]
+ORDER = {"waiting": 0, "building": 1, "shaping": 1, "shipping": 1, "paused": 2, "shipped": 3, "dropped": 4}
+
+
+def leftovers(idea: dict) -> list[dict]:
+    """## 遗留 lines of an idea: `- <text>` or `- [ ] <text>` is open, `- [x] <text>` is dealt with."""
+    body = Path(idea["file"]).read_text(encoding="utf-8")
+    found = []
+    for m in re.finditer(r"^- (?:\[([ xX])\] +)?(.+)$", _section(body, "遗留"), flags=re.M):
+        found.append({"open": (m.group(1) or " ") == " ", "text": m.group(2).strip()})
+    return found
+
+
+def project_file(root: Path) -> Path:
+    return root / ".ship" / "PROJECT.md"
+
+
+def project(directory: str) -> dict:
+    """Create .ship/PROJECT.md when missing, regenerate the half the idea files decide, report gaps.
+
+    The upper half (what it is, how it is built, the screens) is written by the agent;
+    the lower half (what users can do now, every idea, every open leftover) is derived
+    here from the idea files, so it can never drift from them.
+    """
+    root = project_root(directory)
+    if root is None:
+        return {"file": None, "problems": ["这里没有 .ship/ideas，不在 yishuship 管的项目里"]}
+    file = project_file(root)
+    if not file.exists():
+        hand = "".join(f"## {name}\n<!-- Agent 写：{hint} -->\n\n" for name, hint in PROJECT_HAND)
+        file.write_text(f"# {root.name}\n\n{hand}{PROJECT_START}\n{PROJECT_END}\n", encoding="utf-8")
+    ideas = sorted(load(root), key=lambda i: (ORDER.get(i.get("status", ""), 5), i.get("updated", "")))
+    can, listed, todo = [], [], []
+    for idea in ideas:
+        name = f"「{idea['idea']}」"
+        state = "等你决定" if idea.get("waiting") else STEP.get(idea.get("status", ""), "砍掉了" if idea.get("status") == "dropped" else idea.get("status", ""))
+        rel = Path(idea["file"]).relative_to(root / ".ship").as_posix()
+        listed.append(f"- {'bug · ' if idea.get('kind') == 'bug' else ''}{idea['idea']} · {state} · [{rel}]({rel})")
+        if idea.get("status") == "dropped":
+            continue
+        linked = trace(idea)
+        unlinked = not any(e["proves"] for e in linked["evidence"]) and any(s["done"] for s in linked["slices"])
+        for b in linked["behaviors"]:
+            if b["proven_by"]:
+                check = "复查：" + "；".join(b["rechecks"]) if b["rechecks"] else "没写复查"
+                can.append(f"- {b['text']} · 来自{name} · {check}")
+            elif unlinked and b["decided"]:  # an older file whose evidence names no behavior
+                can.append(f"- {b['text']} · 来自{name} · 旧格式，没写复查")
+        todo += [f"- {item['text']} · 来自{name}" for item in leftovers(idea) if item["open"]]
+    lines = [PROJECT_START, f"## 现在能做什么\n" + ("\n".join(can) or "还没有被证据证明过的行为"),
+             f"## 想法\n" + ("\n".join(listed) or "还没有想法"),
+             f"## 待办和技术债\n" + ("\n".join(todo) or "无"), PROJECT_END]
+    text = file.read_text(encoding="utf-8")
+    block = "\n\n".join(lines)
+    if PROJECT_START in text and PROJECT_END in text:
+        text = re.sub(re.escape(PROJECT_START) + r".*?" + re.escape(PROJECT_END), lambda _: block, text, flags=re.S)
+    else:
+        text = text.rstrip() + "\n\n" + block + "\n"
+    file.write_text(text, encoding="utf-8")
+    problems = []
+    for name, _ in PROJECT_HAND:
+        body = re.sub(r"<!--.*?-->", "", _section(text, name), flags=re.S).strip()
+        if not body:
+            problems.append(f"## {name} 还没写")
+    screens = re.sub(r"<!--.*?-->", "", _section(text, "界面现在长什么样"), flags=re.S)
+    for ref in re.findall(r"(screens/[^\s·)]+)", screens):
+        if not (root / ".ship" / ref).exists():
+            problems.append(f"界面截图不存在：.ship/{ref}")
+    return {"file": str(file), "can_do": len(can), "ideas": len(listed), "open_leftovers": len(todo),
+            "problems": problems}
 
 
 def visual(ref: str) -> dict:
@@ -403,7 +487,7 @@ def visuals(idea: dict | None) -> dict:
     if not idea or not idea.get("file"):
         return out
     body = Path(idea["file"]).read_text(encoding="utf-8")
-    section = re.search(r"^## 看得见\n(.*?)(?=^## |\Z)", body, flags=re.M | re.S)
+    section = re.search(r"^## 看得见\n(.*?)(?=^#{1,2} |\Z)", body, flags=re.M | re.S)
     for m in re.finditer(r"^### +(.+?)\n(.*?)(?=^### |\Z)", section.group(1) if section else "", flags=re.M | re.S):
         title, lines = m.group(1).strip(), re.findall(r"^- +(.+)$", m.group(2), flags=re.M)
         for line in lines:
@@ -430,7 +514,7 @@ def visual_problems(idea: dict | None, seen: dict, root: Path | None) -> list[st
     if not idea or not idea.get("waiting"):
         return []
     body = Path(idea["file"]).read_text(encoding="utf-8")
-    section = re.search(r"^## 等你决定\n(.*?)(?=^## |\Z)", body, flags=re.M | re.S)
+    section = re.search(r"^## 等你决定\n(.*?)(?=^#{1,2} |\Z)", body, flags=re.M | re.S)
     asked: dict[str, list[str]] = {}
     for line in (section.group(1) if section else "").splitlines():
         head = re.match(r"\s*([①-⑩])", line)
@@ -591,6 +675,10 @@ def main(argv: list[str]) -> int:
     elif argv[:1] == ["--trace"] and len(argv) == 2:
         linked = trace(current(argv[1]))
         print(json.dumps(linked, ensure_ascii=False, indent=2))
+    elif argv[:1] == ["--project"] and len(argv) == 2:
+        result = project(argv[1])
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 1 if result["problems"] else 0
     elif argv[:1] == ["--route"] and len(argv) == 2:
         print(json.dumps(route(argv[1]), ensure_ascii=False, indent=2))
     elif argv == ["--json"]:

@@ -1,0 +1,29 @@
+[yishuship] 所有想法
+
+
+在等你决定
+  vibereader · 让 VibeReader 的交互体验更好
+    第一块：回答能好好读，编号引用可点 · 2 天前更新
+    等你：范围是否先定在问答面板；第一块做不做；悬停预览放不放进第一块；测试记忆怎么处理
+    /Users/mahaoxuan/Desktop/AI 产品/vibereader
+
+
+进行中
+  yishuship · 一个想法从说出口到用户能用上，全程跟住
+    第十块：对照业界标准，用评估改进 · 0 天前更新
+    /Users/mahaoxuan/Desktop/AI 产品/yishuship
+  yishuship · Agent 干活的时候，我也跟得上
+    第二块：终端旁边的页面 · 1 天前更新
+    /Users/mahaoxuan/Desktop/AI 产品/yishuship
+  By-Your-Side · 翻译的过程让人一眼看懂：一说就开始，哪段在翻、哪段翻完都在页面上
+    第二块：一说翻译就立刻开始 · 1 天前更新
+    /Users/mahaoxuan/Desktop/AI 产品/By-Your-Side
+  os · 她记得交给执行工具的事，重启后说“上次那个”也能接上
+    记下委派并在对话中用上 · 1 天前更新
+    /Users/mahaoxuan/Desktop/AI 产品/os
+
+
+暂停中
+  vibereader · 点问答里的引用，直接跳到原文那句话并高亮
+    三块都已完成，准备上线 · 2 天前更新
+    /Users/mahaoxuan/Desktop/AI 产品/vibereader

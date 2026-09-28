@@ -50,7 +50,8 @@ the terminal that follows the progress file (once; it says if already open). The
      recommendation, in the asking layout. Record the answer in 决定 and set
      `reviewed`; 继续做 reopens it with a new slice;
    - `start` → no idea in progress in this project: say so, read its live
-     state (branch, uncommitted work, paused ideas here), and offer to start
+     state (branch, uncommitted work, `.ship/PROJECT.md` if any, paused ideas
+     here), and offer to start
      one here with `/yishuship <一句话>`. Never recommend other projects' ideas;
    - `overview` → typed outside any project: `../ideas/SKILL.md`.
 

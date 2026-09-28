@@ -16,13 +16,15 @@ one idea one step and leaves the progress file true.
      after evidence shown to the user;
   2. the user asked for a decision only they can make;
   3. the idea meets its ship bar and users can use it.
-- Done when: the progress file reflects reality and names exactly one next step.
+- Done when: the progress file and the project file reflect reality, and the
+  progress file names exactly one next step.
 - Evidence: `../shared/done.md`; the running product proves it, tests support.
 - Output: the done report and/or the decision question.
 
 ## Every run
 
-1. **Find the idea.** Read `.ship/ideas/*.md` in the current project. Several
+1. **Find the idea.** Read `.ship/PROJECT.md` (create it if missing, per
+   `../shared/progress-file.md`), then `.ship/ideas/*.md`. Several
    active: take the most recently updated that is not paused, and name it. None:
    say so and suggest `/yishuship:idea`.
 2. **Reconcile** with git log, tags and the working tree. Where the file and
@@ -57,15 +59,22 @@ one idea one step and leaves the progress file true.
 8. **Verify in the running product**, before and after, using the index entry
    for that kind of product, then run the independent check in
    `../shared/done.md`. Show images with the evidence script.
+   Then rerun the `复查` of every behavior an earlier slice proved
+   (`ideas.py --trace .` lists them). One that no longer holds blocks done,
+   unless a decided behavior of this slice changed it on purpose: say so and
+   update that check.
 9. **Report** per `../shared/done.md`, then update the progress file: slice
-   done with evidence, next slice, `waiting`, `updated`.
+   done with evidence, next slice, `waiting`, `updated`; then the project
+   file: structure picture and screenshots where this slice changed them, and
+   `ideas.py --project .` until it lists no problem.
 
 ## Shipping
 
 When the slices cover the idea's behaviors, set `status: shipping`.
 If `ship_bar` is empty, ask what "users can use it" means for this project
 (installable build, public URL, store listing, a friend using it). Do what the
-bar requires, with the index entry for releases, then verify from a new user's
+bar requires, with the index entry for releases, and whatever `从哪看出来`
+needs the product to record (check it records), then verify from a new user's
 side: install the built artifact or open the public URL fresh. Only then
 `status: shipped`, with `shipped` today and `review_on` a week later unless
 the user wants another day: that is when `/yishuship` asks whether it worked.

@@ -14,8 +14,8 @@ Turn a raw idea into something the user can decide on and cannot lose.
   will be able to do, the smallest first slice that proves it, what it will
   not do, and how much they are willing to spend on it; then decides
   go / shrink / drop.
-- Done when: `.ship/ideas/<slug>.md` exists in the project (see
-  `../shared/progress-file.md`), the project is registered, and the user has
+- Done when: `.ship/ideas/<slug>.md` and `.ship/PROJECT.md` exist in the
+  project (see `../shared/progress-file.md`), the project is registered, and the user has
   been asked for the decision in the layout of `../shared/asking.md` (read it
   before writing the question).
 - Evidence: the user's own words, the project's current state (read the repo,
@@ -27,12 +27,18 @@ Turn a raw idea into something the user can decide on and cannot lose.
 ## Shaping
 
 1. **Place it**: find its project (or a new one) yourself; ask only if two fit.
+   Read its `.ship/PROJECT.md`; if there is none, create it now
+   (`../shared/progress-file.md`): the new idea is judged against what the
+   product already does and owes.
 2. **Understand before proposing.** Ask at most three questions per round,
    each with your recommended answer. Anything the repo, the product, or a
    public source can answer, answer yourself. Stop asking once the behaviors
-   can be written down. Set the appetite, how much this is worth (a slice, a
-   few days, a few weeks), before the solution: it shapes the solution, not
-   the other way round. Ask when it is not obvious; for a small idea, propose
+   can be written down. A round of questions is a stop like any other: write
+   the progress file first (`status: shaping`, the questions in `waiting`,
+   only the sections you already know), so nothing lives only in the chat.
+   Set the appetite, how much this is worth (a slice, a few days, a few
+   weeks), before the solution: it shapes the solution, not the other way
+   round. Ask when it is not obvious; for a small idea, propose
    one slice as the limit. Record it in `appetite` as a limit, not an estimate.
 3. **Write behaviors in product words**: `用户<做什么> → 看到<什么>`. Each one
    must be checkable in the running product. Mark which are settled and which
@@ -48,10 +54,16 @@ Turn a raw idea into something the user can decide on and cannot lose.
    It must stand on its own if nothing after it ships. List later slices in one
    line each; do not plan them. Write what this idea will not do, so later
    slices cannot widen it silently.
-6. **Name the one-way doors** in product terms (data that has to move, formats
+6. **Say how you will know it worked**: what the user will observe after
+   shipping, and `从哪看出来`, the real place it will show: their own use at a
+   named moment, a named person to ask, a log line or count the product keeps.
+   With few users, asking is enough; something the product has to record is
+   built and checked before shipping, not after.
+7. **Name the one-way doors** in product terms (data that has to move, formats
    that are costly to change, money or quota spent).
-7. **Write the progress file** with `status: waiting`, register the project
-   (`python3 <skill-dir>/../../scripts/ideas.py --register <root>`), and ask.
+8. **Write the progress file** with `status: waiting`, register the project
+   (`python3 <skill-dir>/../../scripts/ideas.py --register <root>`), rerun
+   `ideas.py --project <root>`, and ask.
 
 ## Hard Rules
 
