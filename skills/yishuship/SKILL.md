@@ -13,6 +13,9 @@ remember which.
 
 - Outcome: the right step runs, and the first line of your reply says which
   idea you picked up and what step it is at.
+- Language: every sentence you write to the user, that first line and any
+  closing aside included, is in the user's language: their message's; a bare
+  command carries none, so the progress file's.
 - Done when: that step's own outcome is met (see the step's SKILL.md).
 - Evidence: `python3 <skill-dir>/../../scripts/ideas.py --route "$PWD"`, which
   decides from disk; never from memory of earlier sessions.
@@ -69,5 +72,4 @@ print the full block. Then:
 When `other_active` is not empty, the first line names the idea you picked
 (the most recently updated) and that the user can say "换成 <想法>" to switch.
 
-Write in the user's language: their message's, else the progress file's.
 Read the chosen step's SKILL.md in full before acting on it.

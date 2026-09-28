@@ -112,7 +112,8 @@ def run_once(case: dict, arm: str, index: int, work: Path, args) -> dict:
     ws.mkdir(parents=True)
     yshome.mkdir()
     (base / "gitconfig").write_text("[user]\n\tname = eval\n\temail = eval@example.com\n")
-    env = dict(os.environ, YISHUSHIP_HOME=str(yshome), EVAL_WORKSPACE=str(ws), EVAL_PLUGIN=str(args.plugin_copy),
+    outside = {k: v for k, v in os.environ.items() if not k.startswith("CMUX")}  # else `open` lands in the user's cmux pane
+    env = dict(outside, YISHUSHIP_HOME=str(yshome), EVAL_WORKSPACE=str(ws), EVAL_PLUGIN=str(args.plugin_copy),
                GIT_CONFIG_GLOBAL=str(base / "gitconfig"), XDG_CONFIG_HOME=str(base),
                YISHUSHIP_NO_PAGE="1")  # no pages opening in the user's terminal during a run
     if case["scaffold"]:
