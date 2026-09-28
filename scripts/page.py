@@ -134,8 +134,50 @@ def proof_parts(note: str) -> dict:
     missed = re.split(r"^#{3,4} ", missed, maxsplit=1, flags=re.M)[0]
     return {"pictures": re.findall(r"^!\[(.*)\]\(\.\./evidence/([^)]+)\)\s*$", body, flags=re.M),
             "proves": _serves(body),
-            "how": {f"行为{n}": rest.strip() for n, rest in re.findall(r"^- *行为(\d+)\s*[·:：✓]\s*(.+)$", body, flags=re.M)},
+            "how": {f"行为{n}": rest.strip() for n, rest, _ in re.findall(r"^- *行为(\d+)\s*[·:：✓]\s*(.+)$(\n\s*细节[：:].*)?", body, flags=re.M)},
+            "detail": {f"行为{n}": d.strip() for n, d in re.findall(r"^- *行为(\d+)\s*[·:：✓].*\n\s*细节[：:]\s*(.+)$", body, flags=re.M)},
             "missed": [re.sub(r"^- +", "", line).strip() for line in missed.splitlines() if line.strip()]}
+
+
+def feedback(idea: dict) -> list[dict]:
+    """## 你的反馈, written by the page: notes pinned on a picture, and the answer to 满意吗."""
+    text = Path(idea["file"]).read_text(encoding="utf-8") if idea.get("file") else ""
+    out = []
+    for done, rest in re.findall(r"^- \[([ xX])\] +(.+)$", _section(text, "你的反馈"), flags=re.M):
+        parts = [p.strip() for p in rest.split(" · ")]
+        ref = parts.pop() if len(parts) > 2 and "../evidence/" in parts[-1] else ""
+        path, _, frag = ref.partition("#")
+        box = re.fullmatch(r"box=(\d+),(\d+),(\d+),(\d+)", frag)
+        answer = re.match(r"你的回答[：:](满意|不行)", parts[1]) if len(parts) > 1 else None
+        out.append({"done": done != " ", "text": " · ".join(parts[1:]), "answer": answer.group(1) if answer else "",
+                    "src": "/evidence/" + path.split("../evidence/", 1)[1] if path else "",
+                    "box": [int(n) for n in box.groups()] if box else None})
+    return out
+
+
+def add_feedback(file: Path, line: str) -> None:
+    """Append one line under ## 你的反馈, creating it above ## 进度 when missing."""
+    text = file.read_text(encoding="utf-8")
+    if not re.search(r"^## 你的反馈\n", text, flags=re.M):
+        anchor = re.search(r"^## (进度|决定|证据)\n", text, flags=re.M)
+        at = anchor.start() if anchor else len(text)
+        text = text[:at] + "## 你的反馈\n\n" + text[at:]
+    m = re.search(r"^## 你的反馈\n(.*?)(?=^#{1,2} |\Z)", text, flags=re.M | re.S)
+    lines = [l for l in m.group(1).splitlines() if l.strip()] + [line]
+    file.write_text(text[:m.start(1)] + "\n".join(lines) + "\n\n" + text[m.end(1):], encoding="utf-8")
+
+
+def answer(file: Path, said: str, note: str) -> None:
+    """The user answered 满意吗 on the page: note it, add a row to ## 决定, stop waiting.
+    The agent acts on it at the next /yishuship and ticks the line off."""
+    today = time.strftime("%Y-%m-%d")
+    add_feedback(file, f"- [ ] {today} · 你的回答：{said}" + (f" · {note}" if note else ""))
+    text = re.sub(r"^waiting:.*$", "waiting:", file.read_text(encoding="utf-8"), count=1, flags=re.M)
+    why = "在页面上点了满意" if said == "满意" else "在页面上点了不行" + (f"：{note}" if note else "")
+    m = re.search(r"^## 决定\n(?:.*\n)*?(\|.*\|\n)(?!\|)", text, flags=re.M)
+    row = f"| {today} | {said} | {why} |\n"
+    text = text[:m.end()] + row + text[m.end():] if m else text
+    file.write_text(text, encoding="utf-8")
 
 
 # ---------- drawing it ----------
@@ -187,6 +229,14 @@ def main_body(idea: dict | None, root: Path) -> str:
     if idea is None:
         return '<p class="open">这个项目现在没有进行中的想法。</p>'
     question = waiting_block(idea)
+    said = next((f for f in reversed(feedback(idea)) if f["answer"] and not f["done"]), None)
+    if said and not question:
+        ok = said["answer"] == "满意"
+        return (f'<h1 class="{"" if ok else "alert"}">记下了：{"满意" if ok else "先停下，重新聊"}。</h1>'
+                f'<p class="lead">已经写进进度文件。我不会自己醒来：下次你在终端里打 /yishuship，我先读到这句'
+                f'{"和你在图上指的地方" if any(f["box"] and not f["done"] for f in feedback(idea)) else ""}，'
+                f'{"然后提交这一块，接着往下做" if ok else "然后停下来跟你重新聊"}。</p>'
+                f'<div class="btns">{copy_button("/yishuship")}</div>')
     if question and idea.get("waiting", "").startswith("满意吗"):
         return show_view(idea, question)
     if question:
@@ -278,7 +328,7 @@ def ask_view(idea: dict, question: str) -> str:
         title = re.sub(r"^[①-⑳]\s*", "", group["q"])
         out += (f'<section class="q" data-n="{n}" data-key="{esc(group["q"])}" data-default="{esc(pick)}" role="radiogroup">'
                 f'<p class="nth">第{NTH[n] if n <= 10 else n}件</p><h2>{with_terms(title, seen["terms"])}</h2>'
-                f'<div class="opts">{cards}</div></section>')
+                f'<div class="opts{" many" if len(group["opts"]) >= 3 else ""}">{cards}</div></section>')
     reply = " ".join(code)
     return (out + f'<div class="end"><p class="reply">你的回复是 <b data-code>{esc(reply)}</b>。复制后贴回终端，我接着做。</p>'
             f'<div class="btns"><button type="button" class="btn btn-primary" data-copy="/yishuship {esc(reply)}" data-reply>'
@@ -311,7 +361,7 @@ def show_view(idea: dict, question: str) -> str:
     note = done["note"] if done and not early else evidence_for(idea, key)
     parts = proof_parts(note or "")
     pictures = listed_pictures(idea, "现在") if early else []
-    pics = pictures_html(pictures or parts["pictures"], stack=True)  # full width: small text in them stays readable
+    pics = compare(idea, pictures or parts["pictures"])
     if early:
         opening = f'<p class="open">{esc(key or "这一块")}比预想的难。我先停下来，给你看现在的样子。</p>'
         line = lambda name: f'<div class="blk"><h2>{name}</h2><p class="say">{esc(said[name])}</p></div>' if name in said else ""
@@ -322,6 +372,8 @@ def show_view(idea: dict, question: str) -> str:
                    f'{gl("改之前和改之后", GLOSS["证据"])}。</p>')
         names = {b["id"]: b["text"] for b in trace(idea)["behaviors"]}
         how = {b: f'<span class="ev">{esc(text)}</span>' for b, text in parts["how"].items()}
+        for b, text in parts["detail"].items():  # how it was measured stays one click away
+            how[b] = how.get(b, "") + f'<details class="detail"><summary>细节</summary>{esc(text)}</details>'
         proven = "".join(f'<li><span class="ok">✓</span><span>{esc(names.get(b, b))}{how.get(b, "")}</span></li>'
                          for b in parts["proves"])
         missed = "".join(f"<p>{esc(line)}</p>" for line in parts["missed"]) or '<p class="grey">证据里没写这一节。</p>'
@@ -331,8 +383,38 @@ def show_view(idea: dict, question: str) -> str:
     yes = tidy(said.get("满意") or "") or ("提交这一块，接着做" + (done["next"] if done and done["next"] else "下一块"))
     no = tidy(said.get("不行") or "") or "我停在这里，我们重新聊"
     return (opening + body_html
-            + f'<div class="end"><p class="reply">满意吗？回复 <b>满意</b>，{esc(yes)}；回复 <b>不行</b>，{esc(no)}。</p>'
-            f'<div class="btns">{copy_button("/yishuship 满意")}{copy_button("/yishuship 不行", primary=False)}</div></div>')
+            + f'<div class="end" id="answer"><p class="reply">满意吗？点 <b>满意</b>，{esc(yes)}；点 <b>不行</b>，{esc(no)}。</p>'
+            '<div class="btns"><button type="button" class="btn btn-primary" data-answer="满意">满意，接着做</button>'
+            '<button type="button" class="btn btn-secondary" data-answer="不行">不行，重新聊</button></div>'
+            '<p class="small">点了就写进进度文件；也可以照旧在终端里回「满意」或「不行」。</p></div>')
+
+
+def compare(idea: dict, items: list[tuple[str, str]]) -> str:
+    """Before and after on one picture, split by a handle you drag; one picture alone when there is one.
+    Above it, the tool to point at a spot and say what is wrong; below, the spots already pointed at."""
+    items = [(alt, path.split("#")[0]) for alt, path in items if not path.split("#")[0].endswith(".html")]
+    if not items:
+        return ""
+    (a_alt, a_path), (b_alt, b_path) = items[0], items[1] if len(items) > 1 else (None, None)
+    after, after_alt = ("/evidence/" + (b_path or a_path)), (b_alt or a_alt)
+    head = lambda alt: alt.partition(" · ")[0] or alt
+    rest = lambda alt: alt.partition(" · ")[2]
+    notes = [f for f in feedback(idea) if f["box"] and f["src"] == after and not f["done"]]
+    boxes = "".join(f'<i class="pin" data-box="{",".join(map(str, f["box"]))}"><span>{n}</span></i>' for n, f in enumerate(notes, 1))
+    layers = (f'<img class="under" src="{esc(after)}" alt="{esc(after_alt)}">'
+              + (f'<div class="clip"><img src="/evidence/{esc(a_path)}" alt="{esc(a_alt)}"></div>'
+                 f'<span class="tag-l">{esc(head(a_alt))}</span><span class="tag-r">{esc(head(b_alt))}</span>'
+                 '<div class="handle"><button type="button" class="knob" aria-label="左右拖动，对比改之前和改之后">⇔</button></div>'
+                 if b_path else ""))
+    caps = (f'<span><b>{esc(head(a_alt))}</b>{" · " + esc(rest(a_alt)) if rest(a_alt) else ""}</span>'
+            + (f'<span><b>{esc(head(b_alt))}</b>{" · " + esc(rest(b_alt)) if rest(b_alt) else ""}</span>' if b_path else ""))
+    listed = "".join(f'<li data-n="{n}"><span class="pn">{n}</span>{esc(f["text"])}</li>' for n, f in enumerate(notes, 1))
+    return (f'<div class="cmp"><div class="tools"><span class="small" data-hint>'
+            f'{"左右拖动圆钮对比；" if b_path else ""}哪里不对，就在图上框出来。</span>'
+            '<button type="button" class="btn btn-secondary" data-point>在图上指出来 <kbd>P</kbd></button></div>'
+            f'<div class="stage{" two" if b_path else ""}" data-src="{esc(after)}">{layers}{boxes}</div>'
+            f'<div class="caps{" two" if b_path else ""}">{caps}</div>'
+            + (f'<ul class="notes">{listed}</ul>' if listed else "") + '</div>')
 
 
 def project_view(root: Path, idea: dict | None) -> str:
@@ -502,19 +584,19 @@ a{{color:var(--a7);cursor:pointer;text-decoration:none}} a:hover{{background:var
 .opts{{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}}
 .card{{display:flex;flex-direction:column;border-radius:2px;background:var(--surface);padding:0;overflow:hidden;cursor:pointer}}
 .card{{position:relative}} .card:hover{{box-shadow:var(--md)}} .card.sel::after{{content:"";position:absolute;inset:0;border:2px solid var(--a);z-index:2;pointer-events:none}} .card:focus-visible{{outline-offset:2px}}
-.pic{{height:150px;background:var(--n2)}} .pic .fig img{{border:0}}
+.pic{{height:240px;background:var(--n2)}} .opts.many{{grid-template-columns:1fr}} .opts.many .pic,.opts.many .frame{{height:300px}} .pic .fig img{{border:0}}
 .cap{{position:absolute;left:10px;bottom:8px;font-size:12px;color:var(--n7);z-index:1;pointer-events:none}}
 .pic .cap{{background:color-mix(in srgb,var(--n2) 85%,transparent);padding:0 4px}}
 .ob{{display:flex;flex-direction:column;gap:6px;padding:16px}} .row{{display:flex;justify-content:space-between;align-items:center;gap:8px}}
 .mk{{font-size:14px;color:var(--n5)}} .sel .mk{{color:var(--a7)}} .ot{{font-size:19px;font-weight:600;line-height:1.35}} .oc{{font-size:15px;line-height:1.55;color:var(--n7)}}
-.frame{{position:relative;height:150px;overflow:hidden;background:#fff}} .frame .cover{{position:absolute;inset:0;cursor:zoom-in}}
+.frame{{position:relative;height:240px;overflow:hidden;background:#fff}} .frame .cover{{position:absolute;inset:0;cursor:zoom-in}}
 .frame iframe{{width:900px;height:900px;border:0;transform-origin:0 0;background:#fff;pointer-events:none}}
 .fig{{position:relative;line-height:0}} .fig img{{width:100%;cursor:zoom-in}}
 .box{{position:absolute;border:3px solid var(--m);border-radius:2px;display:none;pointer-events:none}}
 pre{{font:16px/1.6 "Source Serif 4",system-ui,sans-serif;white-space:pre;overflow-x:auto;margin:0}} pre.built{{padding-left:20px}}
 pre.block{{font:14px/1.5 ui-monospace,"SF Mono",Menlo,"PingFang SC",monospace}} pre.out{{font-size:12px;line-height:1.4;padding:10px;background:#fff}}
 .rows li,.owed li,.ideas li,.things li{{font-size:17px;line-height:1.5}} .rows,.owed,.ideas{{padding-left:20px;display:flex;flex-direction:column;gap:6px}}
-.ev{{display:block;font-size:15px;color:var(--n6)}}
+.ev{{display:block;font-size:15px;color:var(--n6)}} .detail{{font-size:14px;color:var(--n6)}} .detail summary{{cursor:pointer;color:var(--a7);width:fit-content}}
 .rows li{{display:flex;justify-content:space-between;gap:16px}} .rows li>span:last-child{{white-space:nowrap}}
 .ideas li{{display:flex;gap:12px;align-items:center}} .owed .grey{{font-size:15px}}
 .things{{display:flex;flex-direction:column;gap:8px}} .things li{{display:flex;gap:14px;color:var(--n5)}} .mark{{width:20px;flex-shrink:0}}
@@ -534,6 +616,27 @@ pre.block{{font:14px/1.5 ui-monospace,"SF Mono",Menlo,"PingFang SC",monospace}} 
 #lb{{position:fixed;inset:0;z-index:40;display:none;cursor:zoom-out}} #lb .bg{{position:absolute;inset:0;background:var(--ink)}}
 #lb .fig{{position:absolute}} #lb .fig img{{width:100%;height:100%;cursor:zoom-out}} #lb p{{position:absolute;left:0;right:0;bottom:18px;text-align:center;color:var(--bg);font-size:15px}}
 #lb iframe{{position:absolute;border:0;border-radius:2px;background:#fff;display:none}}
+.cmp{{display:flex;flex-direction:column;gap:10px}} .tools{{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}}
+kbd{{font:12px system-ui;border:1px solid currentColor;border-radius:3px;padding:0 4px;opacity:.7;margin-left:6px}}
+[data-point].on{{background:var(--m);color:#fff;border-color:var(--m)}}
+.stage{{position:relative;overflow:hidden;background:var(--n2);border-radius:2px;box-shadow:var(--md);user-select:none;touch-action:none;line-height:0}}
+.stage img{{display:block;width:100%;pointer-events:none}} .stage .clip{{position:absolute;inset:0;overflow:hidden;clip-path:inset(0 50% 0 0);transition:clip-path .45s cubic-bezier(.2,.8,.2,1)}}
+.stage .clip img{{position:absolute;inset:0;height:100%;object-fit:cover;object-position:left top}}
+.handle{{position:absolute;top:0;bottom:0;left:50%;width:0;transition:left .45s cubic-bezier(.2,.8,.2,1)}} .handle::before{{content:"";position:absolute;top:0;bottom:0;left:-1px;width:2px;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.25)}}
+.stage.drag .clip,.stage.drag .handle{{transition:none}}
+.knob{{position:absolute;top:50%;left:0;transform:translate(-50%,-50%);width:38px;height:38px;border-radius:50%;border:0;background:#fff;box-shadow:var(--md);font-size:14px;line-height:1;cursor:ew-resize;color:var(--ink)}}
+.tag-l,.tag-r{{position:absolute;top:10px;font-size:13px;line-height:1.4;padding:2px 9px;background:rgba(32,30,29,.72);color:#fff;transition:opacity .3s}} .tag-l{{left:10px}} .tag-r{{right:10px}}
+.stage.pointing{{cursor:crosshair}} .stage.pointing .handle{{opacity:0;pointer-events:none}}
+.pin{{position:absolute;border:2px solid var(--m);background:rgba(214,0,108,.08);border-radius:2px;pointer-events:none;animation:pop .25s cubic-bezier(.2,.8,.2,1)}}
+.pin span{{position:absolute;left:-2px;top:-22px;background:var(--m);color:#fff;font-size:12px;line-height:1.5;padding:0 7px}} .pin.hot{{background:rgba(214,0,108,.22)}} .pin.draft{{border-style:dashed;animation:none}}
+@keyframes pop{{from{{transform:scale(.96);opacity:0}}to{{transform:none;opacity:1}}}}
+.ask{{position:absolute;z-index:5;width:300px;background:var(--bg);box-shadow:var(--lg);padding:12px;border-radius:2px;display:flex;flex-direction:column;gap:8px;line-height:1.5;animation:pop .2s}}
+.ask textarea,#answer textarea{{font:inherit;font-size:15px;border:1px solid var(--line);padding:8px;resize:none;height:64px;background:#fff}} .ask .btns{{justify-content:flex-end}} .ask .btn{{padding:6px 12px}}
+.caps{{display:grid;grid-template-columns:1fr;gap:16px;font-size:15px;color:var(--n7)}} .caps.two{{grid-template-columns:1fr 1fr}} .caps b{{color:var(--ink)}}
+.notes{{display:flex;flex-direction:column;gap:6px}} .notes li{{display:flex;gap:10px;font-size:17px;padding:4px 6px;border-radius:2px}} .notes li:hover{{background:#fff1f4}}
+.pn{{background:var(--m);color:#fff;font-size:12px;padding:1px 7px;height:fit-content;margin-top:4px}}
+@media (prefers-reduced-motion:reduce){{.stage *,.pin,.ask{{transition:none!important;animation:none!important}}}}
+@media (max-width:640px){{.opts{{grid-template-columns:1fr}}}}
 @media (max-width:560px){{main{{padding:24px 20px 0}} #foot{{padding:14px 20px 18px}} .opts,.pair{{grid-template-columns:1fr}} .open{{font-size:26px}} h1{{font-size:38px}}}}
 </style></head><body><main id="m">{body(root)}</main><footer id="foot">{FOOT}</footer>
 <div id="tip"></div><div id="lb"><div class="bg"></div><div class="fig"><img alt=""><i class="box"></i></div><iframe sandbox></iframe><p></p></div><script>
@@ -558,7 +661,49 @@ function sync(){{const p=location.hash==='#project';document.documentElement.cla
 m.querySelectorAll('input[name=view]').forEach(i=>i.checked=(i.value==='project')===p);picks();folds();place(m)}}
 addEventListener('hashchange',sync);
 m.addEventListener('change',e=>{{if(e.target.name!=='view')return;history.replaceState(null,'',e.target.value==='project'?'#project':location.pathname);sync()}});
-let last='';setInterval(async()=>{{try{{const r=await fetch('/body');const t=await r.text();if(t===last)return;last=t;m.innerHTML=t;sync()}}catch(e){{}}}},{POLL_MS});sync();
+let last='';async function refresh(){{try{{const r=await fetch('/body');const t=await r.text();if(t===last||m.querySelector('.ask,#answer textarea'))return;last=t;m.innerHTML=t;sync()}}catch(e){{}}}}
+setInterval(refresh,{POLL_MS});
+let cmp=.5,pointing=false,swept=false;const still=matchMedia('(prefers-reduced-motion: reduce)').matches;
+function stage(){{return m.querySelector('.stage')}}
+function setCmp(p,anim=true){{const st=stage();if(!st||!st.classList.contains('two'))return;cmp=Math.max(0,Math.min(1,p));st.classList.toggle('drag',!anim);
+st.querySelector('.clip').style.clipPath=`inset(0 ${{100-cmp*100}}% 0 0)`;st.querySelector('.handle').style.left=cmp*100+'%';
+st.querySelector('.tag-l').style.opacity=cmp<.06?0:1;st.querySelector('.tag-r').style.opacity=cmp>.94?0:1}}
+function pins(){{const st=stage();if(!st)return;const im=st.querySelector('img.under');const go=()=>{{const W=im.naturalWidth,H=im.naturalHeight;if(!W)return;
+st.querySelectorAll('.pin[data-box]').forEach(p=>{{const b=p.dataset.box.split(',').map(Number);Object.assign(p.style,{{left:b[0]/W*100+'%',top:b[1]/H*100+'%',width:(b[2]-b[0])/W*100+'%',height:(b[3]-b[1])/H*100+'%'}})}})}};
+im.complete?go():im.addEventListener('load',go,{{once:true}})}}
+function cmpSync(){{const st=stage();if(!st)return;pins();const btn=m.querySelector('[data-point]');if(btn)btn.classList.toggle('on',pointing);st.classList.toggle('pointing',pointing);
+if(pointing||m.querySelector('.pin[data-box]'))cmp=0;setCmp(cmp,false);
+if(!swept&&!still&&st.classList.contains('two')&&!pointing){{swept=true;[.2,.8,.5].forEach((p,i)=>setTimeout(()=>setCmp(p),450+i*500))}}}}
+const _sync=sync;sync=function(){{_sync();cmpSync()}};sync();
+function togglePoint(){{if(!stage())return;pointing=!pointing;const h=m.querySelector('[data-hint]');if(h)h.textContent=pointing?'在图上拖一个框，框住不对的地方。按 Esc 退出。':'哪里不对，就在图上框出来。';
+if(pointing)cmp=0;cmpSync();if(pointing)setCmp(0)}}
+let start=null,draft=null,dragging=false;
+const rel=(st,e)=>{{const r=st.getBoundingClientRect();return{{x:(e.clientX-r.left)/r.width,y:(e.clientY-r.top)/r.height}}}};
+const put=(el,b)=>Object.assign(el.style,{{left:b[0]*100+'%',top:b[1]*100+'%',width:(b[2]-b[0])*100+'%',height:(b[3]-b[1])*100+'%'}});
+m.addEventListener('pointerdown',e=>{{const st=e.target.closest('.stage');if(!st||st.querySelector('.ask'))return;
+if(pointing){{start=rel(st,e);draft=document.createElement('i');draft.className='pin draft';st.appendChild(draft);st.setPointerCapture(e.pointerId);e.preventDefault();return}}
+if(st.classList.contains('two')){{dragging=true;st.setPointerCapture(e.pointerId);setCmp(rel(st,e).x,false);e.preventDefault()}}}});
+m.addEventListener('pointermove',e=>{{const st=e.target.closest('.stage');if(!st)return;if(start&&draft){{const p=rel(st,e);put(draft,[Math.min(start.x,p.x),Math.min(start.y,p.y),Math.max(start.x,p.x),Math.max(start.y,p.y)])}}
+else if(dragging)setCmp(rel(st,e).x,false)}});
+m.addEventListener('pointerup',e=>{{const st=e.target.closest('.stage');dragging=false;if(st)st.classList.remove('drag');if(!st||!start)return;
+const p=rel(st,e),b=[Math.min(start.x,p.x),Math.min(start.y,p.y),Math.max(start.x,p.x),Math.max(start.y,p.y)];start=null;
+if((b[2]-b[0])*st.clientWidth<12||(b[3]-b[1])*st.clientHeight<12){{draft.remove();draft=null;return}}askNote(st,b)}});
+function askNote(st,b){{const a=document.createElement('div');a.className='ask';a.innerHTML='<b>这里怎么了？</b><textarea placeholder="比如：高亮太多了，只要被引用的那一段"></textarea><div class="btns"><button type="button" class="btn btn-secondary" data-x>取消</button><button type="button" class="btn btn-primary" data-ok>记下 ↵</button></div>';
+const r=st.getBoundingClientRect();a.style.left=Math.max(0,Math.min(b[0]*r.width,r.width-310))+'px';a.style.top=Math.min(b[3]*r.height+8,Math.max(0,r.height-160))+'px';st.appendChild(a);
+const t=a.querySelector('textarea');t.focus();const close=()=>{{a.remove();if(draft){{draft.remove();draft=null}}}};a.querySelector('[data-x]').onclick=close;
+const ok=async()=>{{if(!t.value.trim()){{t.focus();return}}const im=st.querySelector('img.under'),W=im.naturalWidth,H=im.naturalHeight;
+await fetch('/feedback',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{src:st.dataset.src,text:t.value,box:[b[0]*W,b[1]*H,b[2]*W,b[3]*H].map(Math.round)}})}});
+close();pointing=false;refresh()}};a.querySelector('[data-ok]').onclick=ok;
+t.onkeydown=e=>{{if(e.key==='Enter'&&!e.shiftKey){{e.preventDefault();ok()}}if(e.key==='Escape'){{e.stopPropagation();close()}}}}}}
+async function send(said,note){{await fetch('/answer',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{answer:said,note}})}});last='';const t=m.querySelector('#answer textarea');if(t)t.remove();refresh()}}
+m.addEventListener('click',e=>{{if(e.target.closest('[data-point]')){{togglePoint();return}}
+const a=e.target.closest('[data-answer]');if(!a)return;if(a.dataset.answer==='满意'){{send('满意','');return}}
+const box=m.querySelector('#answer');let t=box.querySelector('textarea');if(!t){{t=document.createElement('textarea');t.placeholder='哪里不行？可以不写，你在图上框的地方会一起带上。';box.insertBefore(t,box.querySelector('.small'));t.focus();a.textContent='确认：不行';return}}
+send('不行',t.value)}});
+m.addEventListener('click',e=>{{const li=e.target.closest('.notes li');if(!li)return}});
+m.addEventListener('mouseover',e=>{{const li=e.target.closest('.notes li');m.querySelectorAll('.pin').forEach((p,i)=>p.classList.toggle('hot',!!li&&String(i+1)===li.dataset.n))}});
+addEventListener('keydown',e=>{{if(e.target.closest&&e.target.closest('textarea'))return;if((e.key==='p'||e.key==='P')&&m.querySelector('[data-point]'))togglePoint();
+if(e.key==='Escape'&&pointing)togglePoint();const k=e.target.closest&&e.target.closest('.knob');if(k&&e.key==='ArrowLeft')setCmp(cmp-.05);if(k&&e.key==='ArrowRight')setCmp(cmp+.05)}});
 function pick(c){{const q=c.closest('.q');S.setItem('pick:'+q.dataset.key,c.dataset.pick);picks()}}
 document.addEventListener('click',e=>{{const c=e.target.closest('[data-pick]');if(c&&!e.target.closest('.pic .fig,.pic .frame')){{pick(c);return}}
 const f=e.target.closest('[data-fold]');if(f){{S.setItem('fold',S.getItem('fold')==='1'?'0':'1');folds();return}}
@@ -584,7 +729,7 @@ function shrink(){{if(lb.style.display!=='block')return;const fi=lb.querySelecto
 const label=el=>{{const o=el.closest('.opt'),f=el.closest('figure');return o?o.querySelector('.ot').textContent:f?f.querySelector('figcaption').textContent:''}};
 document.addEventListener('click',e=>{{if(e.target.closest('#lb')){{shrink();return}}const t=e.target.closest('.term');
 if(t){{enlarge(t.dataset.src,t.dataset.box,t.dataset.what,t.getBoundingClientRect());return}}
-const f=e.target.closest('main .fig');if(f){{enlarge(f.querySelector('img').src,f.dataset.box,label(f),f.getBoundingClientRect());return}}
+const f=e.target.closest('main .fig');if(f&&!f.closest('.stage')){{enlarge(f.querySelector('img').src,f.dataset.box,label(f),f.getBoundingClientRect());return}}
 const fr=e.target.closest('main .frame');if(fr){{const fi=lb.querySelector('iframe'),W=Math.min(innerWidth*.9,1100),H=innerHeight*.84;
 lf.style.display='none';fi.style.display='block';fi.src=fr.dataset.src;lb.querySelector('p').textContent=label(fr);lb.style.display='block';
 Object.assign(fi.style,{{left:(innerWidth-W)/2+'px',top:(innerHeight-H)/2-16+'px',width:W+'px',height:H+'px'}});lbg.style.opacity=.85}}}},true);
@@ -626,6 +771,26 @@ def serve(root: Path) -> None:
             self.send_header("Cache-Control", "no-store")
             self.end_headers()
             self.wfile.write(out)
+
+        def do_POST(self):
+            last[0] = time.time()
+            idea = current(str(root))
+            try:
+                data = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
+            except ValueError:
+                data = {}
+            file = Path(idea["file"]) if idea else None
+            if file and self.path == "/feedback" and str(data.get("text", "")).strip() and data.get("src", "").startswith("/evidence/"):
+                box = ",".join(str(int(v)) for v in data.get("box", [])[:4])
+                note = " ".join(str(data["text"]).split()).replace(" · ", "，")
+                add_feedback(file, f"- [ ] {time.strftime('%Y-%m-%d')} · {note} · ../{data['src'].lstrip('/')}#box={box}")
+            elif file and self.path == "/answer" and data.get("answer") in ("满意", "不行") and idea.get("waiting", "").startswith("满意吗"):
+                answer(file, data["answer"], " ".join(str(data.get("note") or "").split()).replace(" · ", "，"))
+            else:
+                self.send_error(400)
+                return
+            self.send_response(204)
+            self.end_headers()
 
         def log_message(self, *_):
             pass

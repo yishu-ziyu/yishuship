@@ -64,6 +64,11 @@ updated: <YYYY-MM-DD>
 ## 等你决定
 <the question block exactly as last shown to the user, in a ``` fence; or 无>
 
+## 你的反馈
+- [ ] <date> · <note the user wrote on the page> · ../evidence/<dir>/after.png#box=<x0>,<y0>,<x1>,<y1>
+- [ ] <date> · 你的回答：满意 | 不行 · <note, if any>
+<written by the page beside the terminal; tick `- [x]` once acted on>
+
 ## 看得见
 ### ① <the question, as in the block above>
 - A ◀ 推荐 · <option> · <what the user will see under it> · 示意 · ../evidence/<date>-<slug>/q1-a.html

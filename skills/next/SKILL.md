@@ -30,8 +30,10 @@ one idea one step and leaves the progress file true.
    say so and suggest `/yishuship:idea`.
 2. **Reconcile** with git log, tags and the working tree. Where the file and
    reality disagree, reality wins: fix the file and say what changed.
-3. **Waiting on the user?** If `waiting` is set and not answered in this
-   conversation, ask that one question again and stop.
+3. **Waiting on the user?** First read `## 你的反馈`: the page writes the
+   user's answer and the spots they pointed at there (`../shared/asking.md`);
+   an unticked line is their reply, as if typed. If `waiting` is still set and
+   not answered in this conversation, ask that one question again and stop.
 
 ## A slice
 

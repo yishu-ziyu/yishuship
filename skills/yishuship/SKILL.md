@@ -31,6 +31,9 @@ progress file (`../shared/asking.md`) and the terminal gets one line in the
 user's language: what you need, how to reply, 看旁边的页面. After `no page`,
 print the full block. Then:
 
+A reply may also come from the page: an unticked line under `## 你的反馈`
+(`../shared/asking.md`) counts as the sentence typed after the command.
+
 1. **The user typed a sentence after the command.** Judge what it is:
    - an answer to the `waiting` question of the current idea (for example
      "1A 2B") → record the decisions in its progress file, clear `waiting`,

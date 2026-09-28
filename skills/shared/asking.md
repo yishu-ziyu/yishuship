@@ -41,6 +41,12 @@ slice's `## 证据` note, or what it looks like now under `### 现在` in
 
 满意 is the user's approval of the commit named in that line. Anything else
 they write is feedback on what they saw: apply it, show again.
+The page can answer for them: under `## 你的反馈`, `你的回答：满意` or
+`你的回答：不行 · <note>` is their reply, and a line ending in
+`#box=x0,y0,x1,y1` is a note on that spot of that picture. Open your reply
+with what they answered there, in their words. 不行 with a note on what to
+change: make that change and show again; 不行 alone: stop and talk it over.
+The slice stays unticked in 进度 until 满意. Tick each line you acted on `- [x]`.
 
 ## While building, ask beforehand only for
 
