@@ -37,7 +37,8 @@ A reply may also come from the page: an unticked line under `## 你的反馈`
 1. **The user typed a sentence after the command.** Judge what it is:
    - an answer to the `waiting` question of the current idea (for example
      "1A 2B") → record the decisions in its progress file, clear `waiting`,
-     and continue with `../next/SKILL.md`;
+     and continue: with `../idea/SKILL.md` while its `status` is `shaping`
+     (finish shaping before anything is built), else `../next/SKILL.md`;
    - an answer to 满意吗: 满意 / 继续 → record it in 决定, mark that slice's
      design 你确认了, do what that line promised (its commit is approved),
      clear `waiting`, continue with
@@ -46,7 +47,8 @@ A reply may also come from the page: an unticked line under `## 你的反馈`
      them. Any other words about what they saw are feedback: apply, show again;
    - an instruction about the current idea → continue with
      `../next/SKILL.md`, applying it;
-   - a new idea → `../idea/SKILL.md`;
+   - a new idea → `../idea/SKILL.md`; typed in a folder that is no project
+     yet (even an empty one), that folder becomes its project;
    - a bug or an observed problem (an error, a screenshot of something wrong,
      "it used to work", an item from 遗留) → a bug file, then `../next/SKILL.md`
      on it. Write `.ship/ideas/<slug>.md` from the template with `kind: bug`:

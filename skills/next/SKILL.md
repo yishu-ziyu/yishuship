@@ -43,8 +43,13 @@ one idea one step and leaves the progress file true.
    before building only for one-way doors (see `../shared/asking.md`). For a
    bug, find the root cause first (index row for errors). Write the slice's
    design under `## 设计` as in the template: what changes and why, the
-   alternative you rejected, and a diagram rendered as a picture (index row
-   for showing structure). Everything inside the box is yours.
+   alternative you rejected, and pictures the user can judge: how it is put
+   together (an architecture diagram, index row for showing structure) and,
+   when users will see something new, how it looks. Never show file names or
+   line ranges. Material the product needs and the project lacks (texts,
+   images, data): ask the user for it or for a path; placeholders only if
+   they say an example is enough. No git yet: create the repository yourself.
+   Everything inside the box is yours.
    Keep the slice small enough that the user sees something new often; a
    slice that grows gets cut, and the part that works is shown.
 5. **Read the project's own rules first** (AGENTS.md, CLAUDE.md, CONTEXT.md,
@@ -53,8 +58,14 @@ one idea one step and leaves the progress file true.
    index rows at three levels: `<skill-dir>/../../INDEX.md` (general),
    `~/.yishuship/INDEX.md` (the user's, cross-project), and
    `<project>/.ship/INDEX.md` (this project only). Before building, tell the
-   user in one line which rows matched and what each gave, or that none did,
-   then show the shape of the change (index row for showing structure).
+   user which methods you are using and what each gives, by name, so they
+   can look them up later, then show the shape of the change (index row for
+   showing structure). The first time a kind of work comes up that no row
+   covers, ask whether to connect a mature open method for it (for example
+   Matt Pocock's skills: prototype for looks, tdd, diagnosing-bugs,
+   code-review, wizard for steps only the user can do); on yes, install it
+   and add the row to `~/.yishuship/INDEX.md`. The method decides how a step
+   is done; when to stop and what to show stays with yishuship.
    The matched entries decide the method, including whether test-first is
    worth it; a small, obvious change does not earn a whole method.
 7. **First green is not done.** Run it on real data, not only your fixtures;
@@ -77,14 +88,33 @@ one idea one step and leaves the progress file true.
 
 ## Shipping
 
-When the slices cover the idea's behaviors, set `status: shipping`.
-If `ship_bar` is empty, ask what "users can use it" means for this project
-(installable build, public URL, store listing, a friend using it). Do what the
-bar requires, with the index entry for releases, and whatever `从哪看出来`
-needs the product to record (check it records), then verify from a new user's
-side: install the built artifact or open the public URL fresh. Only then
-`status: shipped`, with `shipped` today and `review_on` a week later unless
-the user wants another day: that is when `/yishuship` asks whether it worked.
+Shipped means: someone who is not the user gets it from where they would
+normally get such a thing, opens it, and can use it. When the slices cover
+the idea's behaviors, set `status: shipping`. How to get there depends on
+this product and its people; judge it here, do not assume a kind of product.
+
+1. **Agree on the bar.** If `ship_bar` is empty, ask what it means here,
+   in the stop layout: the realistic levels for this product, cheapest
+   first, each with what the user gets and what it costs (money, accounts,
+   steps only they can do), and who it is for (where they are: a site may
+   not open for them without a proxy, say). Recommend the cheapest level a
+   real person can use.
+2. **Prepare, not yet public.** Build what the bar requires, with the
+   matching method (index), and whatever `从哪看出来` needs the product to
+   record. Put it in a real environment that is not announced yet. Steps
+   only the user can do (accounts, payment, signing, a fresh machine
+   account): guide them one at a time and wait.
+3. **Real-world acceptance.** A user isolated from the build, knowing only
+   the idea's behaviors, gets the product through its real entry in that
+   environment and does those things; record it (screenshots or a
+   recording) into the evidence, and check each claim against it. Use
+   whatever tools reach the real entry; if none does, say so plainly and ask
+   the user to do that part, never substitute the source or a mock. Show
+   it and ask 满意吗.
+4. **Ship.** Make it public as agreed, check it opens from the outside, then
+   `status: shipped`, with `shipped` today and `review_on` a week later
+   unless the user wants another day: that is when `/yishuship` asks whether
+   it worked.
 
 ## Hard Rules
 
@@ -93,7 +123,7 @@ the user wants another day: that is when `/yishuship` asks whether it worked.
   still worth more; never extend it silently.
 - List the slice's things (its behaviors, in words) as checkboxes indented
   under it in 进度. While you work, `now` says `<step> · <that thing, copied>`,
-  step one of 定行为 在写 在验证 独立检查 汇报; `next` says when and why you
+  step one of 定行为 在写 在验证 独立检查 汇报 验收 上线; `next` says when and why you
   will next need the user. Rewrite both at every change; empty `now` before you stop.
 - Never widen scope silently. Anything found outside the slice goes to 遗留 or
   becomes its own idea.

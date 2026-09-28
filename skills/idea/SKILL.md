@@ -40,6 +40,11 @@ Turn a raw idea into something the user can decide on and cannot lose.
    Show what you understood: one or two mocks built on the user's real
    product or content, what users would see, listed under `## 看得见` as
    `### 你是说这样吗` (`- <what it shows> · ../evidence/<dir>/<file>`).
+   When the real material is not in the project (their name, texts, images,
+   data), ask for it or for the path to take it from; placeholder content
+   only when the user says an example is enough, and label it 示例.
+   How to question them may come from a matched index row (a grilling
+   method, say); when to stop and what the page shows stays with this file.
    Set the appetite, how much this is worth (a slice, a few days, a few
    weeks), before the solution: it shapes the solution, not the other way
    round. Ask when it is not obvious; for a small idea, propose
@@ -81,15 +86,18 @@ Turn a raw idea into something the user can decide on and cannot lose.
 
 ## Output
 
-The asking layout, with at minimum:
+One stop the user can judge without remembering anything said before. From
+top to bottom, in their language, the way that fits this idea:
 
-```
-①  做不做
-   ├─ A  做，先做第一块：<slice>      ◀ 推荐
-   ├─ B  缩小：<smaller version>
-   └─ C  不做：<reason>
-```
+- what they asked for, in their words, and what they answered so far;
+- what the first slice will look like (a picture) and what users will be
+  able to do with it;
+- what it leaves out, and what it costs (time, money, anything only they
+  can do);
+- one full-sentence question, such as 照上面这个样子，先把这一块做出来，可以吗？,
+  with the smaller version and not building at all offered in sentences
+  too, your recommendation marked.
 
-plus any behavior choices and one-way doors, then the path of the progress file.
+Then any one-way doors in the asking layout, and the path of the progress file.
 It goes under `## 等你决定` for the page; the terminal prints it only when
 `page.py` says `no page`, else one line (`../shared/asking.md`).

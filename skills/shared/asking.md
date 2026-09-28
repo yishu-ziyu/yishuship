@@ -15,6 +15,11 @@ full block under `## 等你决定`, then run
 open, the terminal message is one line: what you need, how to reply, and
 看旁边的页面. If it says `no page`, show the full block in the terminal.
 
+Each stop stands on its own: the user can judge it without remembering an
+earlier screen or message, so repeat whatever the judgment needs. Ask in
+full sentences; a two- or three-word label (做不做, 原地等) means nothing out
+of context and gets misread.
+
 ## While building: show, then ask 满意吗
 
 Shaping a new idea is unchanged: `../idea/SKILL.md` and the layout for
