@@ -14,12 +14,13 @@ one idea one step and leaves the progress file true.
 - Outcome: one of three, whichever comes first:
   1. a slice's behaviors verified in the running product, with before and
      after evidence shown to the user;
-  2. the user asked for a decision only they can make;
+  2. the work got harder than planned: the user shown the product as it is
+     now and asked 满意吗, or asked a one-way-door decision;
   3. the idea meets its ship bar and users can use it.
 - Done when: the progress file and the project file reflect reality, and the
   progress file names exactly one next step.
 - Evidence: `../shared/done.md`; the running product proves it, tests support.
-- Output: the done report and/or the decision question.
+- Output: what the product looks like now, and 满意吗.
 
 ## Every run
 
@@ -34,16 +35,16 @@ one idea one step and leaves the progress file true.
 
 ## A slice
 
-4. **Settle the behaviors and the design.** Any behavior of this slice that
-   still has a choice goes to the user, batched. Read `../shared/asking.md`
-   before writing any question and use its layout exactly; a plain numbered
-   list is not it. For a bug, find the root cause first (index row for errors).
-   Write the slice's design under `## 设计` as in the template: what changes and
-   why, the alternative you rejected, and a diagram rendered as a picture (index
-   row for showing structure). Unless the change is one obvious edit, the design
-   goes to the user in the same stop as the behaviors, as a question whose
-   picture is that diagram (an HTML picture under `## 看得见`, not text art).
-   Everything else inside the box is yours.
+4. **Build first, then show.** Where a behavior of this slice still has a
+   choice, build the recommended option in its smallest version; the user
+   judges it on the running product, not as an A/B question beforehand. Ask
+   before building only for one-way doors (see `../shared/asking.md`). For a
+   bug, find the root cause first (index row for errors). Write the slice's
+   design under `## 设计` as in the template: what changes and why, the
+   alternative you rejected, and a diagram rendered as a picture (index row
+   for showing structure). Everything inside the box is yours.
+   Keep the slice small enough that the user sees something new often; a
+   slice that grows gets cut, and the part that works is shown.
 5. **Read the project's own rules first** (AGENTS.md, CLAUDE.md, CONTEXT.md,
    ADRs) and follow them. New domain terms go into CONTEXT.md if it exists.
 6. **Build it the way this slice calls for.** Match the slice against the
@@ -58,12 +59,16 @@ one idea one step and leaves the progress file true.
    where possible check with something independent of the implementation.
 8. **Verify in the running product**, before and after, using the index entry
    for that kind of product, then run the independent check in
-   `../shared/done.md`. Show images with the evidence script.
+   `../shared/done.md`. Embed the images in `## 证据`; the page shows them.
    Then rerun the `复查` of every behavior an earlier slice proved
    (`ideas.py --trace .` lists them). One that no longer holds blocks done,
    unless a decided behavior of this slice changed it on purpose: say so and
    update that check.
-9. **Report** per `../shared/done.md`, then update the progress file: slice
+9. **Report** per `../shared/done.md`, ending with 满意吗 in the show layout of
+   `../shared/asking.md`. If `page.py` said the page is open, the report goes
+   into the slice's `## 证据` note and the terminal gets one line in the
+   user's language (`第一块做完了，看旁边的页面。满意回「满意」，不行回「不行」。`);
+   only after `no page` is the report printed. Then update the progress file: slice
    done with evidence, next slice, `waiting`, `updated`; then the project
    file: structure picture and screenshots where this slice changed them, and
    `ideas.py --project .` until it lists no problem.
@@ -91,4 +96,8 @@ the user wants another day: that is when `/yishuship` asks whether it worked.
 - Never widen scope silently. Anything found outside the slice goes to 遗留 or
   becomes its own idea.
 - Never touch, stash, or move the user's uncommitted work.
-- Stop only at a real decision, a real blocker, or the end of a slice; say which.
+- Stop at the end of a slice, at a one-way door, or as soon as it is harder
+  than planned: the planned approach fails and must change, what users will
+  see is going to differ from what was agreed, or about half the appetite is
+  spent without the slice done. Each of these stops shows the product as it is
+  now and asks 满意吗 (`../shared/asking.md`); say which stop it is.

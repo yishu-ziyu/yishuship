@@ -35,7 +35,11 @@ Turn a raw idea into something the user can decide on and cannot lose.
    public source can answer, answer yourself. Stop asking once the behaviors
    can be written down. A round of questions is a stop like any other: write
    the progress file first (`status: shaping`, the questions in `waiting`,
-   only the sections you already know), so nothing lives only in the chat.
+   only the sections you already know), so nothing lives only in the chat,
+   then open the page beside the terminal (`../shared/asking.md`).
+   Show what you understood: one or two mocks built on the user's real
+   product or content, what users would see, listed under `## 看得见` as
+   `### 你是说这样吗` (`- <what it shows> · ../evidence/<dir>/<file>`).
    Set the appetite, how much this is worth (a slice, a few days, a few
    weeks), before the solution: it shapes the solution, not the other way
    round. Ask when it is not obvious; for a small idea, propose
@@ -87,3 +91,5 @@ The asking layout, with at minimum:
 ```
 
 plus any behavior choices and one-way doors, then the path of the progress file.
+It goes under `## 等你决定` for the page; the terminal prints it only when
+`page.py` says `no page`, else one line (`../shared/asking.md`).

@@ -45,7 +45,8 @@ labels in product words), list it under `## 看得见`, and check it with
 - Labels in the user's language and product words. Trade-offs and causes go in
   two or three plain sentences beside the diagram, not in bullets.
 - A one-line fact or a trivial edit gets no diagram. A layout too dense for
-  text art goes on a temporary page (`scripts/show-evidence.sh`).
+  text art goes into the progress file as a picture, where the page beside the
+  terminal shows it (`skills/shared/asking.md`).
 
 ## Sources
 

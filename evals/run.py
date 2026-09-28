@@ -167,7 +167,7 @@ def home_access(trace: Path) -> tuple[int, bool]:
     Every such call should come back denied; one that does not is a leak and
     makes the run's score untrustworthy.
     """
-    calls, attempts, leaked = {}, 0, False
+    calls, silenced, attempts, leaked = {}, {}, 0, False
     home = re.compile(re.escape(REAL_HOME) + r"/|~/")
     for line in trace.read_text(encoding="utf-8", errors="ignore").splitlines():
         try:
@@ -182,8 +182,13 @@ def home_access(trace: Path) -> tuple[int, bool]:
             if item.get("type") == "tool_use":  # text written into files is not a read
                 calls[item["id"]] = item.get("name") not in ("Write", "Edit", "TodoWrite") and bool(
                     home.search(json.dumps(item.get("input"), ensure_ascii=False)))
+                command = (item.get("input") or {}).get("command", "") if item.get("name") == "Bash" else ""
+                parts = [p for p in re.split(r"&&|\|\||;|\n", command) if home.search(p)]
+                silenced[item["id"]] = bool(parts) and all(re.search(r"2>\s*/dev/null", p) for p in parts)
             elif item.get("type") == "tool_result" and calls.get(item.get("tool_use_id")):
                 attempts += 1
+                if silenced.get(item.get("tool_use_id")):
+                    continue  # its stderr went to /dev/null, so a denial leaves no text; the sandbox still denied it
                 text = json.dumps(item.get("content"), ensure_ascii=False)
                 if not re.search(r"denied|blocked by a deny rule|Permission to|Operation not permitted", text):
                     leaked = True

@@ -475,6 +475,9 @@ def visual(ref: str) -> dict:
     return {"src": src, "box": [int(n) for n in box.groups()] if box else None}
 
 
+PICTURES_ONLY = ("现在", "你是说这样吗")  # ### headings under ## 看得见 that list pictures, no options
+
+
 def visuals(idea: dict | None) -> dict:
     """## 看得见: a picture for every option of the pending question and for every thing it names.
 
@@ -490,6 +493,8 @@ def visuals(idea: dict | None) -> dict:
     section = re.search(r"^## 看得见\n(.*?)(?=^#{1,2} |\Z)", body, flags=re.M | re.S)
     for m in re.finditer(r"^### +(.+?)\n(.*?)(?=^### |\Z)", section.group(1) if section else "", flags=re.M | re.S):
         title, lines = m.group(1).strip(), re.findall(r"^- +(.+)$", m.group(2), flags=re.M)
+        if title in PICTURES_ONLY:  # pictures shown as they are, not a question's options
+            continue
         for line in lines:
             parts = [p.strip() for p in line.split(" · ")]
             ref = parts.pop() if parts and "../evidence/" in parts[-1] else ""

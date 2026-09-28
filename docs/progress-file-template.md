@@ -16,7 +16,7 @@ tags: [yishuship, <project>]
 project: <project name>
 kind: <empty for an idea; bug for a bug or an observed problem>
 status: shaping | building | waiting | shipping | shipped | paused | dropped
-waiting: <the open questions in one short line, separated by ；, or empty>
+waiting: <满意吗：<slice> while you show the product; else the open questions in one short line, separated by ；; or empty>
 slice: <current slice, short: the status line shows it; or empty>
 now: <while an agent works: <step> · <the thing it is on, in words>; empty otherwise>
 next: <exactly one next step in one line; while working, when and why the user is needed next>
@@ -68,6 +68,10 @@ updated: <YYYY-MM-DD>
 ### ① <the question, as in the block above>
 - A ◀ 推荐 · <option> · <what the user will see under it> · 示意 · ../evidence/<date>-<slug>/q1-a.html
 - B · <option> · <what the user will see> · 真实截图 · ../evidence/<date>-<slug>/now.png#box=<x0>,<y0>,<x1>,<y1>
+### 你是说这样吗
+- <while shaping: a mock on the user's real content, what users would see> · ../evidence/<date>-<slug>/mock-1.html
+### 现在
+- <what this picture shows, when stopped early to show the product> · ../evidence/<date>-<slug>/now.png
 ### 词
 - <a thing the question names, e.g. 问答面板> · <what it is, in words> · ../evidence/<date>-<slug>/now.png#box=<x0>,<y0>,<x1>,<y1>
 
@@ -91,9 +95,12 @@ updated: <YYYY-MM-DD>
 ## 证据
 ### 第一块 <slice>
 证明：行为1、行为2
-![改之前](../evidence/<date>-<slug>/before.png)
-![改之后](../evidence/<date>-<slug>/after.png)
+![改之前 · <what the user saw>](../evidence/<date>-<slug>/before.png)
+![改之后 · <what the user sees now>](../evidence/<date>-<slug>/after.png)
+- 行为1 · <the evidence for it, in product words, with its number>
 复查：<one command, or a few steps on the running product, that proves these behaviors again>
+#### 没验证到的
+- <item> · <why>, or 无
 
 ## 遗留
 - <finding outside scope, with where it was seen; `- [x]` once dealt with, saying where>
@@ -103,6 +110,12 @@ A bug file (`kind: bug`) replaces 为什么做 with `## 现象` (the user's word
 screenshot, when and where it happens) and 用户能看到的行为 with `## 应该怎样`
 (what the user should see instead); its root cause is the first line under
 `## 设计`. Everything else is the same.
+
+When you stop to show the product (end of a slice, or harder than planned),
+`waiting` is `满意吗：<slice>` and `## 等你决定` holds the block as shown, with
+its 原本想 / 难在哪 lines when stopped early. The page beside the terminal shows
+the pictures of that slice's `### <slice>` under `## 证据`, or those under
+`## 看得见` when stopped early.
 
 `#box=` is the pixel rectangle on that image; the page draws it, hovering a
 named thing shows it, a click enlarges it. `## 看得见` exists only while a

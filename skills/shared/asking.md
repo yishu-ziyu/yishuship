@@ -4,22 +4,59 @@ The user is a product person. They decide what users see and do, which one-way
 doors to walk through, and anything outward-facing or destructive. Everything
 inside the box (architecture, tests, code quality) is yours; do not ask about it.
 
-## Stop and ask only for
+## The user looks at the page, types in the terminal
 
-- Behavior the user will see that has more than one reasonable answer.
+The user judges by seeing. At every stop (满意吗, a choice, a shaping
+question), first write what they need to see into the progress file, best
+first: the running product (screenshot or recording), else a mock on their
+real content, else a diagram; words alone only when none applies. Write the
+full block under `## 等你决定`, then run
+`python3 <skill-dir>/../../scripts/page.py "$PWD"`. If it says the page is
+open, the terminal message is one line: what you need, how to reply, and
+看旁边的页面. If it says `no page`, show the full block in the terminal.
+
+## While building: show, then ask 满意吗
+
+Shaping a new idea is unchanged: `../idea/SKILL.md` and the layout for
+choices below. Once a slice is being built, where what the user will see has
+more than one reasonable answer, build the recommended one and show it; do not
+ask A/B beforehand.
+Stop this way at the end of a slice, and as soon as the work is harder than
+planned (see `../next/SKILL.md`). The pictures: before and after under the
+slice's `## 证据` note, or what it looks like now under `### 现在` in
+`## 看得见` when stopped early. The block:
+
+```
+[yishuship] 给你看一下 · <slice>
+
+现在  <what the user sees now, from the running product>
+
+原本想  <what was agreed>              (only when stopped early)
+难在哪  <what turned out harder, in product words>
+
+满意吗？
+  满意  → <what you do next: 提交这一块，接着做 <next>>
+  不行  → 我停在这里，我们重新聊
+```
+
+满意 is the user's approval of the commit named in that line. Anything else
+they write is feedback on what they saw: apply it, show again.
+
+## While building, ask beforehand only for
+
 - One-way doors: data migrations, writes to their data, storage or format choices
   that are costly to undo. Translate each into its product consequence.
 - Scope: what this slice includes, what waits.
-- Commits, pushes, publishing, deleting, spending their quota or money. Approval
-  of a plan is not approval of these.
+- Pushes, publishing, deleting, spending their quota or money; commits, unless
+  named in the 满意 line. Approval of a plan is not approval of these.
 - The ship bar, the first time a project ships (what counts as "users can use it").
 
 Everything else: decide, say what you decided in one line, continue.
 
-## Layout
+## Layout for choices
 
-The user must be able to judge in seconds. Dense lines hide the structure, so
-use space and direction:
+For one-way doors and shaping a new idea. The user must be able to judge in
+seconds. Dense lines hide the structure, so use space and direction:
 
 ```
 [yishuship] 需要你决定
@@ -56,6 +93,8 @@ use space and direction:
   every problem it lists. Then look: `python3 <skill-dir>/../../scripts/snap.py .`
   screenshots every picture; open each PNG. No overlapping or cut-off text,
   every box on its thing, the difference between options visible at a glance.
+  Crop each picture to where the options differ: the page shows an option
+  about 300 px wide, where a whole window is unreadable.
   Fix and snap again until all pass; only then show the question.
 - Lines stay under about 36 Chinese characters; long lines get cut off.
 - Batch every open question into one stop. End with a reply example.
@@ -65,7 +104,8 @@ use space and direction:
 - Open each new version with one line: what the work is for and what is still
   unproven; do not polish looks or wording while the core is unproven. If the
   user seems lost, restate that goal and offer one next step.
-- For looks or wording, show several truly different options at once.
+- For looks or wording the user said 不行 to, show several truly different
+  options at once.
 - Show a proposal before asking about it: a temporary page or a literal
   example of what changes, the current way beside the proposed way.
 - Anything a question names that the user can see (a panel, a mark, an area)

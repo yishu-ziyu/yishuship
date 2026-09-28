@@ -21,12 +21,23 @@ remember which.
 
 Run the route script first. If it names a `current` idea, also run
 `python3 <skill-dir>/../../scripts/page.py "$PWD"`: it opens the page beside
-the terminal that follows the progress file (once; it says if already open). Then:
+the terminal that follows the progress file (once; it says if already open).
+What it prints decides every stop of this run: after `opened` or `already
+open`, the user looks at the page, so pictures and the full block go into the
+progress file (`../shared/asking.md`) and the terminal gets one line in the
+user's language: what you need, how to reply, 看旁边的页面. After `no page`,
+print the full block. Then:
 
 1. **The user typed a sentence after the command.** Judge what it is:
    - an answer to the `waiting` question of the current idea (for example
      "1A 2B") → record the decisions in its progress file, clear `waiting`,
      and continue with `../next/SKILL.md`;
+   - an answer to 满意吗: 满意 / 继续 → record it in 决定, mark that slice's
+     design 你确认了, do what that line promised (its commit is approved),
+     clear `waiting`, continue with
+     `../next/SKILL.md`; 不行 / 重新聊 → record it, stop building, and talk it
+     through: what they expected, what differs, then reshape the slice with
+     them. Any other words about what they saw are feedback: apply, show again;
    - an instruction about the current idea → continue with
      `../next/SKILL.md`, applying it;
    - a new idea → `../idea/SKILL.md`;

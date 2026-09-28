@@ -32,16 +32,18 @@
 
 ## Showing images
 
-The user cannot see files you only name. Put screenshots in front of them:
+The user cannot see files you only name. Embed the before and after in the
+slice's `## 证据` note (`![改之前 · …](…)`); the page beside the terminal shows
+them (`asking.md`). Keep the images in `.ship/evidence/<date>-<slug>/`. Only
+when `page.py` says `no page`, open them with
+`bash <skill-dir>/../../scripts/show-evidence.sh "<title>" "<before.png>|改之前 · …" "<after.png>|改之后 · …"`.
 
-```
-bash <skill-dir>/../../scripts/show-evidence.sh "<title>" \
-  "<before.png>|改之前 · <what is wrong>" \
-  "<after.png>|改之后 · <what changed>"
-```
+## Where it goes
 
-It opens a temporary page beside the terminal; once the user has looked, close
-it with the command it prints. Keep the images in `.ship/evidence/<date>-<slug>/`.
+When `page.py` says the page is open, write the report below into the slice's
+`## 证据` note (the page shows its pictures, behaviors and what was not
+verified) and the terminal gets one line: `<slice> 做完了，看旁边的页面。满意回
+「满意」，不行回「不行」。` Only when it says `no page`, print the report.
 
 ## Layout
 
@@ -71,6 +73,12 @@ it with the command it prints. Keep the images in `.ship/evidence/<date>-<slug>/
 
 参考了：<index entries used, or 无>
 索引缺了：<gap and its level, or 无>
+
+
+满意吗？
+  满意  → 提交这一块，接着做 <next slice>
+  不行  → 我停在这里，我们重新聊
 ```
 
-Then the next decision, if any, in the asking layout.
+End there: one question, no separate commit question. A one-way door the next
+slice needs goes in the choices layout of `asking.md` instead.
