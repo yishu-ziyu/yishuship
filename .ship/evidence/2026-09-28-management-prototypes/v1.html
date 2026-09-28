@@ -1,0 +1,25 @@
+<!doctype html><html lang="zh"><head><meta charset="utf-8"><title>版本一 · 板块卡片</title><link rel="stylesheet" href="common.css"><style>
+main{max-width:1080px;margin:0 auto;padding:36px 40px 80px}
+.head h1{font-size:34px} .head p{color:var(--grey);margin-top:6px;max-width:760px}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:30px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 18px 12px;display:flex;flex-direction:column;transition:box-shadow .2s,transform .2s}
+.card:hover{box-shadow:0 8px 24px rgba(31,31,29,.08);transform:translateY(-2px)}
+.card h2{font-size:20px} .card .sum{color:var(--grey);font-size:13px;margin:2px 0 12px}
+.card .it{display:flex;gap:8px;align-items:baseline;padding:7px 0;border-top:1px solid #ece9df;font-size:14px}
+.card .it span:first-child{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .card .it:hover{color:var(--accent)}
+.card .more{margin-top:auto;padding-top:10px;font-size:13px;color:var(--accent)}
+.list{margin-top:18px} .list h2{font-size:26px;margin:6px 0 4px} .list .sum{color:var(--grey)}
+.grp h3{font-family:var(--sans);font-size:13px;color:var(--grey);font-weight:500;margin:26px 0 6px}
+.row{display:grid;grid-template-columns:70px 1fr auto;gap:14px;align-items:baseline;padding:11px 4px;border-bottom:1px solid var(--line)}
+.row:hover{background:var(--card)} .row .id{color:var(--faint);font-size:12px} .row .t{font-size:15.5px} .row .l{display:block;color:var(--grey);font-size:13px}
+@media (max-width:820px){.grid{grid-template-columns:1fr}}
+</style></head><body><main id="app"></main><div class="vtag">版本一 · 板块卡片 · <a href="/">换一版</a></div><script src="common.js"></script><script>
+const home=()=>`<div class="head fade"><h1>${esc(D.project)}</h1><p>${esc(D.what)}</p></div>
+ <div class="grid fade">${D.order.map(t=>{const xs=groups(t).flatMap(([,a])=>a).slice(0,3);
+  return `<div class="card"><a href="${href(t)}"><h2>${t}</h2><p class="sum">${summary(t)}</p></a>
+   ${xs.map(i=>`<a class="it" href="${href(t,i.id)}"><span>${esc(i.title)}</span>${st(i)}</a>`).join("")}
+   <a class="more" href="${href(t)}">看全部 ${ofType(t).length} 条 →</a></div>`}).join("")}</div>`;
+const list=t=>`<div class="list fade">${crumb({type:t})}<h2>${t}</h2><p class="sum">${summary(t)}</p>
+ ${groups(t).map(([n,xs])=>`<div class="grp"><h3>${n} · ${xs.length}</h3>${xs.map(i=>`<a class="row" href="${href(t,i.id)}"><span class="id">${esc(i.id)}</span><span class="t">${esc(i.title)}<span class="l">${esc(lead(i))}</span></span>${st(i)}</a>`).join("")}</div>`).join("")}</div>`;
+boot(r=>{app.innerHTML=r.id?`<div class="fade" style="max-width:820px">${detail(r.id)}</div>`:r.type?list(r.type):home()});
+</script></body></html>

@@ -1,0 +1,25 @@
+<!doctype html><html lang="zh"><head><meta charset="utf-8"><title>版本三 · 先讲现在</title><link rel="stylesheet" href="common.css"><style>
+main{max-width:860px;margin:0 auto;padding:40px 40px 80px}
+.proj{font-size:13px;color:var(--grey)} .big{font-family:var(--serif);font-size:30px;line-height:1.45;margin:10px 0 24px}
+.big b{color:var(--accent);font-weight:600} .big em{font-style:normal;color:var(--need)}
+.blk{margin:0 0 26px} .blk h2{font-family:var(--sans);font-size:13px;color:var(--grey);font-weight:500;margin-bottom:6px}
+.blk a.it{display:flex;gap:12px;align-items:center;padding:12px 14px;background:var(--card);border:1px solid var(--line);border-radius:10px;margin-bottom:8px;transition:border-color .2s}
+.blk a.it:hover{border-color:var(--accent)} .it .t{flex:1} .it .t small{display:block;color:var(--grey);font-size:12.5px}
+.bar{width:90px;height:6px;background:#e7e3d6;border-radius:3px;overflow:hidden} .bar i{display:block;height:100%;background:var(--accent)}
+.toc{margin-top:40px;border-top:1px solid var(--line);padding-top:16px} .toc h2{font-family:var(--sans);font-size:13px;color:var(--grey);font-weight:500;margin-bottom:8px}
+.toc a{display:flex;justify-content:space-between;padding:9px 2px;border-bottom:1px dashed var(--line)} .toc a:hover{color:var(--accent)} .toc span{color:var(--grey);font-size:13px}
+.grp h3{font-family:var(--sans);font-size:13px;color:var(--grey);font-weight:500;margin:24px 0 4px}
+.row{display:flex;gap:12px;align-items:baseline;padding:10px 2px;border-bottom:1px solid var(--line)} .row .t{flex:1} .row .l{display:block;color:var(--grey);font-size:13px} .row:hover{color:var(--accent)}
+</style></head><body><main id="app"></main><div class="vtag">版本三 · 先讲现在 · <a href="/">换一版</a></div><script src="common.js"></script><script>
+const item=i=>`<a class="it" href="${href(i.type,i.id)}"><span class="t">${esc(i.title)}<small>${esc(i.type)} ${esc(i.id)}${i.progress?` · 步骤 ${i.progress[0]}/${i.progress[1]}`:""}</small></span>${i.progress?`<span class="bar"><i style="width:${100*i.progress[0]/i.progress[1]}%"></i></span>`:""}${st(i)}</a>`;
+const home=()=>{const n=now();
+ return `<div class="fade"><p class="proj">${esc(D.project)} · ${esc(D.what.split("：")[0])}</p>
+ <p class="big">现在在做 <b>${n.doing.length} 件事</b>，${n.wait.length?`有 <em>${n.wait.length} 件等你确认</em>`:"没有等你确认的"}，还有 <b>${n.open.length} 条需求</b>没开始解决。</p>
+ ${n.wait.length?`<div class="blk"><h2>等你确认</h2>${n.wait.map(item).join("")}</div>`:""}
+ <div class="blk"><h2>正在做</h2>${n.doing.map(item).join("")}</div>
+ <div class="blk"><h2>还没开始解决的需求</h2>${n.open.map(item).join("")}</div>
+ <div class="toc"><h2>全部内容</h2>${D.order.map(t=>`<a href="${href(t)}">${t}<span>${summary(t)}</span></a>`).join("")}</div></div>`};
+const list=t=>`<div class="fade">${crumb({type:t})}<h1 style="font-size:28px;margin:8px 0 2px">${t}</h1><p style="color:var(--grey)">${summary(t)}</p>
+ ${groups(t).map(([n,xs])=>`<div class="grp"><h3>${n} · ${xs.length}</h3>${xs.map(i=>`<a class="row" href="${href(t,i.id)}"><span class="t">${esc(i.title)}<span class="l">${esc(lead(i))}</span></span>${st(i)}</a>`).join("")}</div>`).join("")}</div>`;
+boot(r=>{app.innerHTML=r.id?`<div class="fade">${detail(r.id)}</div>`:r.type?list(r.type):home()});
+</script></body></html>

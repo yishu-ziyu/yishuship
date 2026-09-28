@@ -1,0 +1,26 @@
+<!doctype html><html lang="zh"><head><meta charset="utf-8"><title>版本二 · 因果一条线</title><link rel="stylesheet" href="common.css"><style>
+main{max-width:1120px;margin:0 auto;padding:32px 40px 80px}
+.head h1{font-size:30px} .head p{color:var(--grey);margin-top:4px;max-width:780px}
+.line{display:flex;align-items:stretch;gap:0;margin:26px 0 8px;position:relative}
+.stn{flex:1;text-align:left;padding:14px 14px 12px;border:1px solid var(--line);background:var(--card);border-radius:10px;transition:background .2s,border-color .2s,transform .2s;min-width:0}
+.stn:hover{border-color:var(--accent);transform:translateY(-2px)} .stn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.stn .n{font-family:var(--serif);font-size:30px;line-height:1.1} .stn .t{font-size:15px;font-weight:600} .stn .s{font-size:12px;color:var(--grey);margin-top:4px;line-height:1.4} .stn.on .s{color:#d6deea}
+.arr{align-self:center;color:var(--faint);padding:0 6px;font-size:18px}
+.loop{font-size:12px;color:var(--grey);text-align:right;margin:2px 4px 0} .side{margin-top:10px;font-size:13px;color:var(--grey)} .side a{color:var(--accent)}
+.panel{margin-top:22px;border-top:2px solid var(--ink);padding-top:14px}
+.grp h3{font-family:var(--sans);font-size:13px;color:var(--grey);font-weight:500;margin:18px 0 4px}
+.row{display:grid;grid-template-columns:72px 1fr auto;gap:14px;align-items:baseline;padding:10px 4px;border-bottom:1px solid var(--line)} .row:hover{background:var(--card)}
+.row .id{color:var(--faint);font-size:12px} .row .l{display:block;color:var(--grey);font-size:13px}
+.trail{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:14px 0 4px;font-size:13px} .trail a{padding:3px 10px;border:1px solid var(--line);border-radius:999px;background:var(--card)} .trail a:hover{border-color:var(--accent)} .trail .me{background:var(--ink);color:var(--paper);border-color:var(--ink)} .trail i{font-style:normal;color:var(--faint)}
+.hint{color:var(--grey);font-size:14px;margin-top:22px}
+</style></head><body><main id="app"></main><div class="vtag">版本二 · 因果一条线 · <a href="/">换一版</a></div><script src="common.js"></script><script>
+const CH=["需求","意图","设计","任务","问题"];
+const line=cur=>`<div class="line">${CH.map((t,k)=>`${k?'<span class="arr">→</span>':""}<a class="stn${t===cur?" on":""}" href="${href(t)}"><div class="n">${ofType(t).length}</div><div class="t">${t}</div><div class="s">${summary(t)}</div></a>`).join("")}</div>
+ <p class="loop">↺ 做的时候发现的问题，再变回新的需求</p><p class="side">贯穿全程：<a href="${href("决定")}">决定 · ${summary("决定")}</a></p>`;
+const panel=t=>`<div class="panel fade">${groups(t).map(([n,xs])=>`<div class="grp"><h3>${n} · ${xs.length}</h3>${xs.map(i=>`<a class="row" href="${href(t,i.id)}"><span class="id">${esc(i.id)}</span><span>${esc(i.title)}<span class="l">${esc(lead(i))}</span></span>${st(i)}</a>`).join("")}</div>`).join("")}</div>`;
+const trail=id=>{const i=I(id);const chip=x=>`<a href="${href(I(x).type,x)}">${esc(I(x).type)} ${esc(x)}</a>`;
+ return `<div class="trail">${i.up.filter(I).map(chip).join("")}${i.up.length?"<i>→</i>":""}<span class="me" style="padding:3px 10px;border-radius:999px;background:var(--ink);color:var(--paper)">${esc(i.type)} ${esc(id)}</span>${i.down.length?"<i>→</i>":""}${i.down.filter(I).map(chip).join("")}</div>`};
+boot(r=>{const head=`<div class="head"><h1>${esc(D.project)}</h1><p>${esc(D.what)}</p></div>`;
+ if(r.id){app.innerHTML=head+line(I(r.id).type)+`<div class="fade" style="max-width:840px;margin-top:22px">${crumb(r)}${trail(r.id)}${detail(r.id,{noCrumb:1})}</div>`;return}
+ app.innerHTML=head+line(r.type)+(r.type?`<div style="margin-top:8px">${crumb(r)}</div>`+panel(r.type):`<p class="hint">点上面任何一站，看这一站的全部内容。</p>`)});
+</script></body></html>

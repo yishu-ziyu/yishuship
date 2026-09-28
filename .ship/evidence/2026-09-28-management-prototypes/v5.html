@@ -1,0 +1,39 @@
+<!doctype html><html lang="zh"><head><meta charset="utf-8"><title>版本五 · 一件事从头读到尾</title><link rel="stylesheet" href="common.css"><style>
+main{max-width:880px;margin:0 auto;padding:34px 40px 80px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:18px 0 6px;flex-wrap:wrap} .tabs a{padding:8px 12px;font-size:14px;color:var(--grey);border-bottom:2px solid transparent;margin-bottom:-1px} .tabs a.on{color:var(--ink);border-color:var(--ink);font-weight:600} .tabs a:hover{color:var(--ink)}
+h1.p{font-size:28px} .what{color:var(--grey);margin-top:4px}
+.grp h3{font-family:var(--sans);font-size:13px;color:var(--grey);font-weight:500;margin:24px 0 6px}
+.story{display:block;padding:14px 4px;border-bottom:1px solid var(--line)} .story:hover{background:var(--card)}
+.story .t{font-size:16px} .story .q{color:var(--grey);font-size:13px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dots{display:flex;gap:6px;align-items:center;margin-top:6px;font-size:12px;color:var(--grey)} .dots i{width:9px;height:9px;border-radius:50%;background:#d8d4c6;display:inline-block} .dots i.done{background:#6f8f63} .dots i.doing{background:var(--accent)} .dots i.redo,.dots i.wait{background:var(--need)} .dots em{font-style:normal;margin-right:8px}
+.tl{position:relative;margin-top:26px;padding-left:28px;border-left:2px solid var(--line)}
+.step{position:relative;margin-bottom:30px;animation:fade .35s var(--ease) both} .step::before{content:"";position:absolute;left:-36px;top:5px;width:14px;height:14px;border-radius:50%;background:var(--paper);border:2px solid var(--accent)}
+.step h2{font-family:var(--sans);font-size:13px;color:var(--grey);font-weight:500;margin-bottom:6px} .step .md{font-size:15.5px}
+.step .quote{font-family:var(--serif);font-size:19px;line-height:1.6;border-left:3px solid var(--ink);padding-left:12px}
+.step figure{margin:10px 0 0} .step img{max-width:100%;border:1px solid var(--line);border-radius:6px;max-height:320px;object-fit:cover;object-position:left top;cursor:zoom-in} .step figcaption{font-size:12px;color:var(--grey)}
+.mini{display:flex;gap:10px;align-items:center;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:8px;margin-top:6px} .mini:hover{border-color:var(--accent)} .mini .t{flex:1}
+.bar{width:80px;height:6px;background:#e7e3d6;border-radius:3px;overflow:hidden} .bar i{display:block;height:100%;background:var(--accent)}
+.row{display:grid;grid-template-columns:70px 1fr auto;gap:12px;align-items:baseline;padding:10px 4px;border-bottom:1px solid var(--line)} .row:hover{background:var(--card)} .row .id{color:var(--faint);font-size:12px}
+</style></head><body><main id="app"></main><div class="vtag">版本五 · 一件事从头读到尾 · <a href="/">换一版</a></div><script src="common.js"></script><script>
+const tabs=cur=>`<nav class="tabs"><a class="${!cur||cur==="需求"?"on":""}" href="#/">按需求看</a>${D.order.filter(t=>t!=="需求").map(t=>`<a class="${cur===t?"on":""}" href="${href(t)}">${t} ${ofType(t).length}</a>`).join("")}</nav>`;
+const chain=r=>{const tasks=Object.values(D.items).filter(i=>i.type==="任务"&&i.up.includes(r.id));
+ const intents=r.down.filter(x=>I(x)&&I(x).type==="意图"); const probs=Object.values(D.items).filter(p=>p.type==="问题"&&p.up.some(t=>tasks.find(k=>k.id===t)));
+ return {tasks,intents,probs}};
+const F=(i,k)=>(i.fields.find(([a])=>a===k)||["",""])[1];
+const home=()=>`${tabs("需求")}<div class="fade">${groups("需求").map(([n,xs])=>`<div class="grp"><h3>${n} · ${xs.length}</h3>${xs.map(r=>{const c=chain(r);
+ return `<a class="story" href="${href("需求",r.id)}"><div class="t">${esc(r.title)}</div><div class="q">“${esc(F(r,"原话").replace(/\n/g," ").slice(0,80))}”</div>
+  <div class="dots"><em>${esc(r.date)}</em><i class="${r.status}"></i>需求${c.intents.length?` → <i class="doing"></i>意图`:""}${c.tasks.length?` → ${c.tasks.map(t=>`<i class="${t.status}"></i>`).join("")}任务 ${c.tasks.filter(t=>t.status==="done").length}/${c.tasks.length}`:""}${c.probs.length?` · 碰到 ${c.probs.length} 个问题`:""} · ${st(r)}</div></a>`}).join("")}</div>`).join("")}</div>`;
+const story=id=>{const r=I(id),c=chain(r);const S=(h,b)=>b?`<section class="step"><h2>${h}</h2>${b}</section>`:"";
+ return `${crumb({type:"需求",id},"按需求看")}<h1 style="font-size:28px;margin:10px 0 4px">${esc(r.title)}</h1><div class="meta" style="color:var(--grey);font-size:13px">${st(r)} · ${esc(r.id)} · ${esc(r.date)} · 来源：${esc(F(r,"来源"))}</div>
+ <div class="tl">${S("你当时说的",F(r,"原话")&&`<p class="quote">${inl(F(r,"原话"))}</p>`)}
+ ${S("当时看到的",(F(r,"当时看到的")?md(F(r,"当时看到的")):"")+r.images.map(m=>`<figure><img src="${m.src}"><figcaption>${esc(m.alt)}</figcaption></figure>`).join(""))}
+ ${S("我们的理解",F(r,"我们的理解")&&md(F(r,"我们的理解")))}${S("怎样算解决",F(r,"怎样算解决")&&md(F(r,"怎样算解决")))}
+ ${S("进了哪里",c.intents.map(x=>`<a class="mini" href="${href("意图",x)}"><span class="t">意图 ${esc(x)} · ${esc(I(x).title)}</span>${st(I(x))}</a>`).join(""))}
+ ${S("拆成的任务",c.tasks.map(t=>`<a class="mini" href="${href("任务",t.id)}"><span class="t">${esc(t.title)}</span><span class="bar"><i style="width:${100*t.progress[0]/t.progress[1]}%"></i></span>${st(t)}</a>`).join(""))}
+ ${S("做的时候碰到的问题",c.probs.map(p=>`<a class="mini" href="${href("问题",p.id)}"><span class="t">${esc(p.title)}</span>${st(p)}</a>`).join(""))}
+ ${S("结果",md(F(r,"去向")))}</div>`};
+const list=t=>`${tabs(t)}<div class="fade">${groups(t).map(([n,xs])=>`<div class="grp"><h3>${n} · ${xs.length}</h3>${xs.map(i=>`<a class="row" href="${href(t,i.id)}"><span class="id">${esc(i.id)}</span><span>${esc(i.title)}</span>${st(i)}</a>`).join("")}</div>`).join("")}</div>`;
+document.addEventListener('click',e=>{const im=e.target.closest('.step img');if(im){const lb=document.getElementById('lb');lb.querySelector('img').src=im.src;lb.style.display='flex'}});
+boot(r=>{const head=`<h1 class="p">${esc(D.project)}</h1><p class="what">${esc(D.what)}</p>`;
+ app.innerHTML=r.id?`<div class="fade">${I(r.id).type==="需求"?story(r.id):detail(r.id)}</div>`:head+(r.type&&r.type!=="需求"?list(r.type):home())});
+</script></body></html>

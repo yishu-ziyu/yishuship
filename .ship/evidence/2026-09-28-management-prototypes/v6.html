@@ -1,0 +1,26 @@
+<!doctype html><html lang="zh"><head><meta charset="utf-8"><title>版本六 · 像一本书</title><link rel="stylesheet" href="common.css"><style>
+main{max-width:760px;margin:0 auto;padding:56px 40px 90px}
+.cover{text-align:center;padding-bottom:26px;border-bottom:1px solid var(--line)} .cover h1{font-size:40px;letter-spacing:.02em} .cover p{color:var(--grey);margin-top:10px;font-family:var(--serif);font-size:16px}
+.nums{display:flex;justify-content:center;gap:28px;margin-top:18px;font-size:13px;color:var(--grey)} .nums b{display:block;font-family:var(--serif);font-size:22px;color:var(--ink);font-weight:600}
+.ch{margin-top:34px} .ch h2{font-size:22px;display:flex;align-items:baseline;gap:12px} .ch h2 small{font-family:var(--sans);font-size:13px;color:var(--grey);font-weight:400}
+.ch h2 a:hover{color:var(--accent)} .ch .no{font-family:var(--serif);color:var(--faint);font-size:15px;width:28px}
+.toc a{display:flex;align-items:baseline;gap:8px;padding:6px 0 6px 40px;font-size:15px} .toc a:hover{color:var(--accent)}
+.toc .dots{flex:1;border-bottom:1px dotted var(--faint);transform:translateY(-4px);min-width:20px} .toc .t{max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+details.more summary{padding:6px 0 6px 40px;font-size:13px;color:var(--accent);cursor:pointer;list-style:none} details.more summary::-webkit-details-marker{display:none}
+details.more[open] .toc{animation:fade .3s var(--ease)}
+.pager{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:40px;border-top:1px solid var(--line);padding-top:16px} .pager a{padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px} .pager a:hover{border-color:var(--accent)} .pager small{display:block;color:var(--grey);font-size:12px} .pager .r{text-align:right}
+</style></head><body><main id="app"></main><div class="vtag">版本六 · 像一本书 · <a href="/">换一版</a></div><script src="common.js"></script><script>
+const NO="一二三四五六";
+const entries=t=>groups(t).flatMap(([,a])=>a);
+const line=i=>`<a href="${href(i.type,i.id)}"><span class="t">${esc(i.title)}</span><span class="dots"></span>${st(i)}</a>`;
+const home=()=>`<div class="fade"><div class="cover"><h1>${esc(D.project)}</h1><p>${esc(D.what)}</p>
+ <div class="nums">${D.order.map(t=>`<span><b>${ofType(t).length}</b>${t}</span>`).join("")}</div></div>
+ ${D.order.map((t,k)=>{const xs=entries(t);return `<section class="ch"><h2><span class="no">${NO[k]}</span><a href="${href(t)}">${t}</a><small>${summary(t)}</small></h2>
+  <div class="toc">${xs.slice(0,4).map(line).join("")}</div>${xs.length>4?`<details class="more"><summary>展开其余 ${xs.length-4} 条</summary><div class="toc">${xs.slice(4).map(line).join("")}</div></details>`:""}</section>`}).join("")}</div>`;
+const chapter=t=>`<div class="fade">${crumb({type:t},"目录")}<section class="ch"><h2><span class="no">${NO[D.order.indexOf(t)]}</span>${t}<small>${summary(t)}</small></h2>
+ ${groups(t).map(([n,xs])=>`<p style="margin:18px 0 4px 40px;font-size:13px;color:var(--grey)">${n}</p><div class="toc">${xs.map(line).join("")}</div>`).join("")}</section></div>`;
+const page=id=>{const i=I(id),xs=entries(i.type),k=xs.findIndex(x=>x.id===id),p=xs[k-1],n=xs[k+1];
+ return `<div class="fade">${crumb({type:i.type,id},"目录").replace("</nav>","")}</nav>${detail(id,{noCrumb:1})}
+ <div class="pager">${p?`<a href="${href(p.type,p.id)}"><small>← 上一条</small>${esc(p.title)}</a>`:"<span></span>"}${n?`<a class="r" href="${href(n.type,n.id)}"><small>下一条 →</small>${esc(n.title)}</a>`:""}</div></div>`};
+boot(r=>{app.innerHTML=r.id?page(r.id):r.type?chapter(r.type):home()});
+</script></body></html>
