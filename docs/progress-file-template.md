@@ -102,7 +102,8 @@ updated: <YYYY-MM-DD>
 证明：行为1、行为2
 ![改之前 · <what the user saw>](../evidence/<date>-<slug>/before.png)
 ![改之后 · <what the user sees now>](../evidence/<date>-<slug>/after.png)
-- 行为1 · <the evidence for it, in product words, with its number>
+- 行为1 · <what the user sees that proves it, in product words, with the real example>
+  细节：<how it was measured, if worth keeping: values, selectors, logs>
 复查：<one command, or a few steps on the running product, that proves these behaviors again>
 #### 没验证到的
 - <item> · <why>, or 无

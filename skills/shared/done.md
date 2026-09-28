@@ -15,7 +15,10 @@
   that break a behavior or a claim, not style. Fix, check again, and say in
   the report what it found. If no subagent can run, say the check was yours.
 - **Each decided behavior gets its own line** with the evidence that proves it,
-  and that evidence note in the progress file says `证明：行为N`.
+  and that evidence note in the progress file says `证明：行为N`. The line says
+  what the user sees, with the real example (`上传后只剩顶部「开始精读」是亮蓝`),
+  never how you measured it: color values, selectors, file:line and logs go in
+  a `细节：` line under it, which the page folds away.
 - **Earlier behaviors still hold**: each earlier slice's `复查` was run again
   after this change, with its result. Each new evidence note ends with
   `复查：<one command, or a few steps on the running product>` that proves its
