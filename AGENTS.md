@@ -21,6 +21,13 @@ above the input box. `scripts/page.py` reads the same files for the page and
 tells cmux (sidebar status, a flash, typing a confirmed reply). Without the
 flag everything falls back to the progress file.
 
+The user's corrections are kept per project: after every turn the hooks
+module has a small model read what the user said against the agent's last
+answer and suggests a rule for each correction (`.ship/记录.jsonl`, committed,
+no quotes; their words stay in `.ship/live/原话.jsonl`). Rules the user
+confirms on the page go to `.ship/规则.md` (this project) or
+`~/.yishuship/规则.md` (every project) and into every turn's context.
+
 `skills/shared/*.md` hold the management rules all three follow: when and how
 to stop and ask, what "done" must show, the progress file. `INDEX.md` maps each
 moment of the work (writing code, designing, a bug, a release, verifying a

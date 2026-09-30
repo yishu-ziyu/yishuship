@@ -34,6 +34,8 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from ideas import HOME as YS_HOME  # noqa: E402
+from ideas import clip  # noqa: E402
 from ideas import (STALE_MINUTES, _section, _serves, current, doing, load, project_file, project_root, slice_names,  # noqa: E402
                    quiet_for, slice_things, trace, visuals)
 
@@ -214,15 +216,117 @@ def copy_button(text: str, primary: bool = True) -> str:
             f'data-copy="{esc(text)}">复制 {esc(text)}</button>')
 
 
+# ---------- what the user corrected, decided or asked for (hooks/register.ts writes it) ----------
+
+def moments(root: Path) -> list[dict]:
+    """.ship/记录.jsonl, each line with the user's own words from .ship/live/原话.jsonl when this machine has them."""
+    def lines(path: Path) -> list[dict]:
+        try:
+            return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        except (OSError, ValueError):
+            return []
+    said = {q.get("id"): q.get("said", "") for q in lines(root / ".ship" / "live" / "原话.jsonl")}
+    return [{**m, "said": said.get(m.get("id"), "")} for m in lines(root / ".ship" / "记录.jsonl")]
+
+
+def write_moments(root: Path, items: list[dict]) -> None:
+    keep = [{k: v for k, v in m.items() if k != "said"} for m in items]  # the words stay on this machine
+    (root / ".ship" / "记录.jsonl").write_text(  # the same compact lines the hooks module writes
+        "".join(json.dumps(m, ensure_ascii=False, separators=(",", ":")) + "\n" for m in keep), encoding="utf-8")
+    write_rules(root, items)
+
+
+def write_rules(root: Path, items: list[dict] | None = None) -> None:
+    """Confirmed rules as the files agents read: this project's in .ship/规则.md, the user's own
+    (for every project) in ~/.yishuship/规则.md, mirrored into .ship/live/ where the hooks module reads it."""
+    items = moments(root) if items is None else items
+    ok = [m for m in items if m.get("status") == "确认" and m.get("rule")]
+    line = lambda m: f'- {m["rule"]}（{m.get("at", "")[:10]} 你确认）'
+    here = [line(m) for m in ok if m.get("scope") != "所有项目"]
+    if items or (root / ".ship" / "记录.jsonl").exists():  # a project with nothing recorded gets no new file
+        (root / ".ship" / "规则.md").write_text(
+            "# 你确认过的规则（这个项目）\n\n由 yishuship 从你的纠正里整理，你在页面上确认后写入；不要手改。\n\n"
+            + ("\n".join(here) + "\n" if here else "还没有。\n"), encoding="utf-8")
+    mine_file = YS_HOME / "规则.md"
+    tag = f"（来自 {root.name}）"
+    try:
+        others = [l for l in mine_file.read_text(encoding="utf-8").splitlines() if l.startswith("- ") and tag not in l]
+    except OSError:
+        others = []
+    mine = others + [line(m) + tag for m in ok if m.get("scope") == "所有项目"]
+    YS_HOME.mkdir(parents=True, exist_ok=True)
+    mine_file.write_text("# 你确认过的规则（所有项目）\n\n" + "\n".join(mine) + ("\n" if mine else ""), encoding="utf-8")
+    live = root / ".ship" / "live"
+    live.mkdir(parents=True, exist_ok=True)
+    (live / ".gitignore").write_text("*\n", encoding="utf-8")  # stays on this machine in any repository
+    (live / "个人规则.md").write_text("\n".join(mine) + ("\n" if mine else ""), encoding="utf-8")
+
+
+def rule_card(m: dict) -> str:
+    said = m.get("said") or ""
+    return (f'<div class="rule" data-id="{esc(m["id"])}"><div class="rtop"><span class="scope">'
+            f'{"你所有的项目" if m.get("scope") == "所有项目" else "只在这个项目"}</span>'
+            f'<button type="button" class="lnk" data-act="换范围">改成{"只在这个项目" if m.get("scope") == "所有项目" else "所有项目"}</button></div>'
+            f'<p class="rtext">{esc(m.get("rule", ""))}</p>'
+            + (f'<p class="rfrom">来自你说的：“{esc(clip(said, 90))}”</p>' if said else "")
+            + ('<div class="btns rbtns"><button type="button" class="btn btn-primary" data-act="确认">确认，以后照做</button>'
+               '<button type="button" class="btn btn-secondary" data-act="改一下">改一下</button>'
+               '<button type="button" class="btn btn-secondary" data-act="不要">不要</button></div>'
+               if m.get("status") == "建议" else "")
+            + '</div>')
+
+
+def suggestions(root: Path) -> str:
+    """On the 现在 view: corrections the agent wants to keep, until the user says yes or no."""
+    wait = [m for m in moments(root) if m.get("status") == "建议"]
+    if not wait:
+        return ""
+    return (f'<section class="rules-wait"><p class="nth">Agent 认出了你的 {len(wait)} 条纠正</p>'
+            '<h2>想记下来，以后照做。请逐条确认，或者告诉它不要。</h2>'
+            + "".join(rule_card(m) for m in wait) + '</section>')
+
+
+def record_view(root: Path) -> str:
+    items = moments(root)
+    if not items:
+        return ('<p class="open proj">这个项目还没有记录。</p><p class="lead">你纠正 Agent、做决定、提新要求时，'
+                '每一轮结束后会自动记在这里，不用谁去补。</p>')
+    wait = [m for m in items if m.get("status") == "建议"]
+    ok = [m for m in items if m.get("status") == "确认"]
+    tag = lambda m: {"纠正": "纠正", "决定": "决定", "新要求": "新要求"}.get(m.get("kind", ""), m.get("kind", ""))
+    rows = "".join(
+        f'<div class="lrow"><div class="lt">{int(m.get("at", "0000-01-01")[5:7])}月{int(m.get("at", "0000-01-01")[8:10])}日 {esc(m.get("at", "")[11:16])}</div>'
+        f'<div class="lc">{("“" + esc(clip(m["said"], 140)) + "”") if m.get("said") else "<span class=grey>原话只在记下它的那台电脑上</span>"}</div>'
+        f'<div class="lc grey">{esc(m.get("before", ""))}</div>'
+        f'<div class="lc">{esc(m.get("rule", "")) or "—"}</div>'
+        f'<div class="lj"><span class="k k-{esc(tag(m))}">{esc(tag(m))}</span>'
+        f'{"<span class=st>" + {"确认": "你确认了", "建议": "等你确认", "不要": "你说不要"}.get(m.get("status"), "") + "</span>" if m.get("status") else ""}</div></div>'
+        for m in items)
+    lanes = ('<div class="lanes"><div class="lrow lhead"><div></div><div>你说</div><div>Agent 在这之前</div>'
+             '<div>由此定下的</div><div>是什么</div></div>' + rows + '</div>')
+    groups = [("等你确认", wait), ("你所有的项目", [m for m in ok if m.get("scope") == "所有项目"]),
+              ("只在这个项目", [m for m in ok if m.get("scope") != "所有项目"])]
+    listing = '<div class="rlist">' + "".join(
+        f'<h2>{name} · {len(g)} 条</h2>' + "".join(rule_card(m) for m in g) for name, g in groups if g) + '</div>'
+    return (f'<p class="open proj">你说过的话，和由此定下的规则。</p>'
+            f'<p class="lead">一共 {len(items)} 条：纠正 {sum(m.get("kind") == "纠正" for m in items)} 条，'
+            f'你确认了 {len(ok)} 条规则，{len(wait)} 条等你确认。同一份记录，两种看法：</p>'
+            '<div class="seg rseg"><label class="seg-opt"><input type="radio" name="rview" value="lanes" checked>泳道</label>'
+            '<label class="seg-opt"><input type="radio" name="rview" value="list">清单</label></div>'
+            + lanes + listing)
+
+
 def body(root: Path) -> str:
     idea = current(str(root))
     name = root.name + (f' · {"bug · " if idea.get("kind") == "bug" else ""}{idea.get("short") or idea.get("idea")}'
                         if idea else "")
     top = (f'<header class="top"><span class="which">{esc(name)}</span><div class="seg">'
            '<label class="seg-opt"><input type="radio" name="view" value="now" checked>现在</label>'
-           '<label class="seg-opt"><input type="radio" name="view" value="project">项目</label></div></header>')
-    return (f'{top}<div class="view v-now">{main_body(idea, root)}</div>'
-            f'<div class="view v-proj">{project_view(root, idea)}</div>')
+           '<label class="seg-opt"><input type="radio" name="view" value="project">项目</label>'
+           '<label class="seg-opt"><input type="radio" name="view" value="record">记录</label></div></header>')
+    return (f'{top}<div class="view v-now">{main_body(idea, root)}{suggestions(root)}</div>'
+            f'<div class="view v-proj">{project_view(root, idea)}</div>'
+            f'<div class="view v-rec">{record_view(root)}</div>')
 
 
 def live(root: Path) -> dict | None:
@@ -488,8 +592,10 @@ def show_view(idea: dict, question: str) -> str:
     else:
         name = done["key"] if done else (key or "这一块")
         name = f'“{slice_names(idea).get(name) or name}”'  # what the slice is; its number means nothing to the user
-        opening = (f'<p class="open">Agent 做完了{esc(name)}。请看下面的'
-                   f'{gl("改之前和改之后", GLOSS["证据"])}，然后回复满不满意。</p>')
+        has_before = any(alt.startswith("改之前") for alt, _ in parts["pictures"])
+        opening = (f'<p class="open">Agent 做完了{esc(name)}。请看下面'
+                   + (f'的{gl("改之前和改之后", GLOSS["证据"])}' if has_before else "做出来的样子")
+                   + '，然后回复满不满意。</p>')
         names = {b["id"]: b["text"] for b in trace(idea)["behaviors"]}
         how = {b: f'<span class="ev">{esc(text)}</span>' for b, text in parts["how"].items()}
         for b, text in parts["detail"].items():  # how it was measured stays one click away
@@ -515,6 +621,8 @@ def compare(idea: dict, items: list[tuple[str, str]]) -> str:
     items = [(alt, path.split("#")[0]) for alt, path in items if not path.split("#")[0].endswith(".html")]
     if not items:
         return ""
+    if not items[0][0].startswith("改之前"):  # nothing to compare with: every picture, one under another
+        return more_pictures(items)
     (a_alt, a_path), (b_alt, b_path) = items[0], items[1] if len(items) > 1 else (None, None)
     after, after_alt = ("/evidence/" + (b_path or a_path)), (b_alt or a_alt)
     head = lambda alt: alt.partition(" · ")[0] or alt
@@ -678,7 +786,7 @@ def minutes_ago(idea: dict) -> str:
 
 def page(root: Path) -> str:
     return f"""<!doctype html><html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>走到哪了</title><script>if(location.hash==='#project')document.documentElement.classList.add('proj')</script>
+<title>走到哪了</title><script>if(location.hash==='#project')document.documentElement.classList.add('proj');if(location.hash==='#record')document.documentElement.classList.add('rec')</script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap"><style>
 :root{{--bg:#f3f2f2;--surface:#eae9e9;--ink:#201e1d;--a:#0088b0;--a1:#e9f8ff;--a6:#1186ac;--a7:#006786;--m:#d6006c;--m7:#aa0b56;
 --n2:#eae7e7;--n3:#d7d3d3;--n5:#9b9797;--n6:#7d7979;--n7:#605d5d;--line:color-mix(in srgb,#201e1d 16%,transparent);
@@ -692,7 +800,15 @@ h1,h2{{font-weight:600}} b{{font-weight:600}}
 .seg-opt input{{position:absolute;opacity:0;pointer-events:none}} .seg-opt+.seg-opt{{border-left:1px solid var(--line)}}
 .seg-opt:has(input:checked){{background:var(--a);color:var(--bg)}} .seg-opt:not(:has(input:checked)):hover{{background:var(--a1)}}
 .seg-opt:has(input:focus-visible){{outline:2px solid var(--a);outline-offset:2px}}
-.view{{padding:48px 0 40px;display:flex;flex-direction:column;gap:40px}} .v-proj,html.proj .v-now{{display:none}} html.proj .v-proj{{display:flex}}
+.view{{padding:48px 0 40px;display:flex;flex-direction:column;gap:40px}} .v-proj,.v-rec,html.proj .v-now,html.rec .v-now{{display:none}} html.proj .v-proj,html.rec .v-rec{{display:flex}}
+.rule{{background:#fff;border:1px solid var(--line);padding:12px 16px;margin-top:10px}} .rtop{{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--n6)}}
+.rtext{{font-size:17px;font-weight:600;margin:6px 0}} .rfrom{{font-size:14px;color:var(--n7)}} .rbtns{{margin-top:10px}} .lnk{{background:none;border:0;color:var(--a7);font-size:13px;cursor:pointer}}
+.rule textarea{{width:100%;box-sizing:border-box;font:inherit;font-size:16px;min-height:70px;padding:6px;border:1px solid var(--line)}}
+.rseg{{align-self:flex-start}} .v-rec[data-rv=list] .lanes,.v-rec:not([data-rv=list]) .rlist{{display:none}}
+.lrow{{display:grid;grid-template-columns:78px 1.3fr 1fr 1.2fr 70px;gap:12px;padding:10px 0;border-bottom:1px dashed var(--line);font-size:15px}}
+.lhead{{font-size:12px;color:var(--n6);border-bottom:1px solid var(--line)}} .lt{{font-size:13px;color:var(--n6)}}
+.k{{font-size:12px;padding:1px 8px;border-radius:9px;border:1px solid var(--line)}} .k-纠正{{color:var(--m7);border-color:var(--m)}} .st{{display:block;font-size:12px;color:var(--n6);margin-top:4px}}
+.rules-wait{{border-top:2px solid var(--m);padding-top:14px}}
 .open{{font-size:30px;line-height:1.45;font-style:italic;text-wrap:pretty}} .open.proj{{font-size:28px}}
 h1{{font-size:46px;line-height:1.15}} h1.alert{{color:var(--m7)}} .lead{{font-size:24px;line-height:1.55;text-wrap:pretty}}
 .say{{font-size:20px;line-height:1.55;text-wrap:pretty}} .reply{{font-size:22px;line-height:1.5}} .reply b{{color:var(--a7)}}
@@ -793,11 +909,13 @@ if(!code.length)return;const t=code.join(' '),b=m.querySelector('[data-code]'),r
 if(r&&!r.dataset.busy){{r.dataset.text='/yishuship '+t;r.textContent='发给 Agent：/yishuship '+t}}}}
 function folds(){{m.querySelectorAll('[data-fold]').forEach(f=>{{const open=S.getItem('fold')==='1';f.setAttribute('aria-expanded',open);
 f.querySelector('.tri').textContent=open?'▾':'▸';f.nextElementSibling.hidden=!open}})}}
-function sync(){{const p=location.hash==='#project';document.documentElement.classList.toggle('proj',p);
-m.querySelectorAll('input[name=view]').forEach(i=>i.checked=(i.value==='project')===p);picks();folds();place(m)}}
+function sync(){{const p=location.hash==='#project',rc=location.hash==='#record';document.documentElement.classList.toggle('proj',p);document.documentElement.classList.toggle('rec',rc);
+m.querySelectorAll('input[name=view]').forEach(i=>i.checked=i.value===(p?'project':rc?'record':'now'));
+const rv=S.getItem('rview')||'lanes',vr=m.querySelector('.v-rec');if(vr)vr.dataset.rv=rv;m.querySelectorAll('input[name=rview]').forEach(i=>i.checked=i.value===rv);picks();folds();place(m)}}
 addEventListener('hashchange',sync);
-m.addEventListener('change',e=>{{if(e.target.name!=='view')return;history.replaceState(null,'',e.target.value==='project'?'#project':location.pathname);sync()}});
-let last='';async function refresh(){{try{{const r=await fetch('/body');const t=await r.text();if(t===last||m.querySelector('.ask,#answer textarea'))return;last=t;m.innerHTML=t;sync()}}catch(e){{}}}}
+m.addEventListener('change',e=>{{if(e.target.name==='rview'){{S.setItem('rview',e.target.value);sync();return}}if(e.target.name!=='view')return;history.replaceState(null,'',e.target.value==='project'?'#project':e.target.value==='record'?'#record':location.pathname);sync()}});
+async function ruleAct(card,act,text){{await fetch('/rule',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{id:card.dataset.id,act,text}})}});last='';refresh()}}
+let last='';async function refresh(){{try{{const r=await fetch('/body');const t=await r.text();if(t===last||m.querySelector('.ask,#answer textarea,.rule textarea'))return;last=t;m.innerHTML=t;sync()}}catch(e){{}}}}
 let ver='';async function check(){{try{{const v=await (await fetch('/v')).text();if(v!==ver){{ver=v;await refresh()}}}}catch(e){{}}}}
 setInterval(check,{POLL_MS});
 let cmp=.5,pointing=false,swept=false;const still=matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -849,6 +967,9 @@ const r=await fetch('/send',{{method:'POST',headers:{{'Content-Type':'applicatio
 const t=await r.text();delete b.dataset.busy;if(note)note.textContent=t;if(!r.ok)picks()}}
 document.addEventListener('click',e=>{{const c=e.target.closest('[data-pick]');if(c&&!e.target.closest('.pic .fig,.pic .frame')){{pick(c);return}}
 const f=e.target.closest('[data-fold]');if(f){{S.setItem('fold',S.getItem('fold')==='1'?'0':'1');folds();return}}
+const ra=e.target.closest('[data-act]');if(ra){{const card=ra.closest('.rule');const act=ra.dataset.act;
+if(act==='改一下'){{const p=card.querySelector('.rtext');if(!card.querySelector('textarea')){{p.outerHTML='<textarea>'+p.textContent.replace(/</g,'&lt;')+'</textarea>';ra.textContent='保存修改';ra.dataset.act='保存'}}return}}
+ruleAct(card,act,act==='保存'?card.querySelector('textarea').value:'');return}}
 const sb=e.target.closest('[data-send]');if(sb){{if(!sb.dataset.busy)sendReply(sb);return}}
 const b=e.target.closest('[data-copy]');if(b){{navigator.clipboard.writeText(b.dataset.copy).then(()=>{{b.dataset.busy=1;b.textContent='已复制';
 setTimeout(()=>{{delete b.dataset.busy;b.textContent='复制 '+b.dataset.copy;picks()}},1600)}})}}}});
@@ -886,7 +1007,7 @@ def version(root: Path) -> str:
     """Changes whenever anything the page shows may have changed: the files it reads, or the minute."""
     ship = root / ".ship"
     seen = [int(time.time() // 30)]
-    for path in (ship / "live" / "now.json", ship / "live" / "focus.json", ship / "PROJECT.md", *sorted((ship / "ideas").glob("*.md"))):
+    for path in (ship / "live" / "now.json", ship / "live" / "focus.json", ship / "记录.jsonl", ship / "live" / "原话.jsonl", ship / "PROJECT.md", *sorted((ship / "ideas").glob("*.md"))):
         try:
             st = path.stat()
             seen.append(f"{path.name}:{st.st_mtime_ns}:{st.st_size}")
@@ -1021,6 +1142,20 @@ def serve(root: Path) -> None:
                 self.end_headers()
                 self.wfile.write(out)
                 return
+            elif self.path == "/rule" and data.get("act") in ("确认", "不要", "保存", "换范围"):
+                items = moments(root)
+                hit = next((m for m in items if m.get("id") == data.get("id")), None)
+                if not hit:
+                    self.send_error(404)
+                    return
+                if data["act"] == "换范围":
+                    hit["scope"] = "这个项目" if hit.get("scope") == "所有项目" else "所有项目"
+                else:
+                    if data["act"] == "保存" and str(data.get("text", "")).strip():
+                        hit["rule"] = " ".join(str(data["text"]).split())
+                    hit["status"] = "不要" if data["act"] == "不要" else "确认"
+                    hit["decided_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+                write_moments(root, items)
             elif file and self.path == "/answer" and data.get("answer") in ("满意", "不行") and idea.get("waiting", "").startswith("满意吗"):
                 answer(file, data["answer"], " ".join(str(data.get("note") or "").split()).replace(" · ", "，"))
             else:
@@ -1042,6 +1177,10 @@ def serve(root: Path) -> None:
         server.shutdown()
     threading.Thread(target=watch, daemon=True).start()
     threading.Thread(target=cmux_bridge, args=(root,), daemon=True).start()
+    try:
+        write_rules(root)  # the user's own rules, mirrored where the hooks module can read them
+    except OSError:
+        pass
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))  # so the finally below still runs
     try:
         server.serve_forever()

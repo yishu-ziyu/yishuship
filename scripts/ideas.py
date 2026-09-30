@@ -172,7 +172,9 @@ def current(directory: str) -> dict | None:
     for root in (here, *here.parents):
         if (root / ".ship" / "ideas").is_dir():
             active = [i for i in load(root) if i.get("status") in ACTIVE]
-            return max(active, key=lambda i: (i.get("updated", ""), i["file"]), default=None)
+            # the one waiting on the user first, then the latest update, then the file written last
+            return max(active, key=lambda i: (bool(i.get("waiting")), i.get("updated", ""),
+                                              Path(i["file"]).stat().st_mtime), default=None)
     return None
 
 
