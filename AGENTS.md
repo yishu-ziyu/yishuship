@@ -14,6 +14,13 @@ to one of three steps (also invocable directly):
 - `skills/next` — move the current idea one verified step (slice, decision, ship).
 - `skills/ideas` — list every idea across projects.
 
+`hooks/register.ts` runs inside Claude Code (early access: only with
+`CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1`): it watches every step of the agent,
+writes `.ship/live/` (kept out of git), and draws what the user must do now
+above the input box. `scripts/page.py` reads the same files for the page and
+tells cmux (sidebar status, a flash, typing a confirmed reply). Without the
+flag everything falls back to the progress file.
+
 `skills/shared/*.md` hold the management rules all three follow: when and how
 to stop and ask, what "done" must show, the progress file. `INDEX.md` maps each
 moment of the work (writing code, designing, a bug, a release, verifying a
@@ -55,6 +62,10 @@ python3 scripts/ideas.py                    # overview renders
 echo '{"cwd":"'"$PWD"'"}' | bash scripts/statusline.sh   # no line unless an idea is active here
 HOME=$(mktemp -d) bash scripts/install.sh --no-obsidian </dev/null   # fresh-user install still works
 wc -l skills/*/*.md | tail -1      # size check, not a hard limit
+CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 claude plugin validate "$PWD/.claude-plugin/plugin.json"   # hooks module loads
+claude -p "/plugin-types /tmp/cc-types" && cp hooks/register.ts /tmp/cc-types/ && \
+  npx -y -p typescript@5 tsc --noEmit --strict --target es2023 --lib es2023 \
+  --module esnext --moduleResolution bundler --skipLibCheck /tmp/cc-types/claude-code.d.ts /tmp/cc-types/register.ts
 ```
 
 Behavior changes to the skills are measured with the eval suite before and

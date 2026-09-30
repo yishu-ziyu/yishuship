@@ -2,7 +2,8 @@
 """Screenshot every picture under ## 看得见 so the agent can look at it before the user does.
 
   snap.py DIR     render each option (its mock, or its screenshot with the box drawn)
-                  and each named thing, and print where the PNGs are
+                  and each named thing, and print where the PNGs are; an HTML mock also
+                  gets a PNG beside it, the small picture Claude Code shows in the option's box
 
 A mock that reads fine as code can still overlap, cut off, or hide the one
 difference the option is about; a box can miss its target. Only looking finds
@@ -63,6 +64,14 @@ def main(argv: list[str]) -> int:
     failed = 0
     for name, it in items:
         source = evidence / it["src"][len("/evidence/"):]
+        if source.suffix.lower() == ".html" and not name.startswith("词-"):
+            # the picture Claude Code draws in the option's box above the input: a PNG beside the mock
+            try:
+                subprocess.run([tool, "screenshot", "--viewport-size=900,500", "--wait-for-timeout=600",
+                                source.as_uri(), str(source.with_suffix(".png"))],
+                               capture_output=True, timeout=TIMEOUT, check=True)
+            except (subprocess.SubprocessError, OSError):
+                print(f"{name}: no small picture for the terminal (could not screenshot {source.name})")
         if source.suffix.lower() != ".html":
             page = out / f"{name}.html"
             page.write_text(framed(source, it.get("box")), encoding="utf-8")

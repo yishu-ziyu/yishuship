@@ -22,6 +22,7 @@ import http.server
 import json
 import os
 import re
+import shutil
 import signal
 import subprocess
 import sys
@@ -33,10 +34,10 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from ideas import (STALE_MINUTES, _section, _serves, current, doing, load, project_file, project_root,  # noqa: E402
+from ideas import (STALE_MINUTES, _section, _serves, current, doing, load, project_file, project_root, slice_names,  # noqa: E402
                    quiet_for, slice_things, trace, visuals)
 
-POLL_MS = 2000
+POLL_MS = 300       # how often the open page asks whether anything changed
 IDLE_EXIT = 600      # seconds without a request before the server stops
 CLOSED_AFTER = 8     # seconds without a request before the page counts as closed
 
@@ -224,10 +225,112 @@ def body(root: Path) -> str:
             f'<div class="view v-proj">{project_view(root, idea)}</div>')
 
 
+def live(root: Path) -> dict | None:
+    """What Claude Code saw the agent doing, from .ship/live/now.json (hooks/register.ts writes it).
+
+    None when the hooks module is not loaded or the file is unreadable: the page then reads the
+    progress file as before. A closed session is returned too: it says the progress file's `now`
+    is left over when the file was last written before the session closed."""
+    try:
+        now = json.loads((root / ".ship" / "live" / "now.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(now, dict) or now.get("state") not in ("working", "asking", "stopped", "closed"):
+        return None
+    now["age"] = max(0, time.time() - float(now.get("at", 0)) / 1000)
+    return now
+
+
+def ago(seconds: float) -> str:
+    return "刚刚" if seconds < 60 else f"{int(seconds // 60)} 分钟前" if seconds < 3600 else f"{int(seconds // 3600)} 小时前"
+
+
+STOPPED = {  # why the turn ended → what the user should do, in one sentence
+    "answer": "Agent 已经停下，请在终端里告诉它下一步做什么。",
+    "aborted": "你打断了 Agent。请在终端里告诉它接下来做什么。",
+    "error": "Agent 出错停下了，请到终端里看错误信息。",
+    "refusal": "Agent 拒绝了这个请求，停下了。请到终端里看它说了什么。",
+    "start": "Agent 已经打开，请在终端里告诉它要做什么。",
+}
+
+
+def live_view(now: dict, idea: dict | None) -> str:
+    """The first sentence from what the agent is doing this second."""
+    when = f'<span class="grey">· {esc(ago(now["age"]))}</span>'
+    if now["state"] == "asking":
+        return ('<h1 class="alert">Agent 问了你一个问题，请到终端里选一个答案。</h1>'
+                + (f'<p class="lead">它问的是：“{esc(now.get("question", ""))}” {when}</p>' if now.get("question") else ""))
+    if now["state"] == "working":
+        if now["age"] >= STALE_MINUTES * 60:
+            return (f'<h1 class="alert">Agent 已经 {esc(ago(now["age"]).removesuffix("前"))}没有新动作了。</h1>'
+                    '<p class="lead">可能卡在某一步，也可能终端已经关了。请到终端里看一眼；'
+                    '要它接着做，在终端里打：</p>'
+                    f'<div class="btns">{copy_button("/yishuship")}</div>')
+        did = now.get("did") or ""
+        line = ("它刚开始这一轮。" if not did else f"{did}，它接着做。" if did.startswith("你")
+                else did if did.startswith("子 Agent") else f"它正{did}" if did.startswith("在") else f"它{did}")
+        things = slice_things(idea) if idea and idea.get("now") else []
+        _, _, place, _ = doing(idea) if things else ("", "", 0, 0)
+        rows = "".join(
+            f'<li class="{"done" if d else ("here" if n == place else "todo")}">'
+            f'<span class="mark">{"✓" if d else ("◐" if n == place else "○")}</span>{esc(text)}</li>'
+            for n, (d, text) in enumerate(things, 1))
+        return ('<h1>Agent 正在工作，你现在不用操作。</h1>'
+                f'<p class="lead">{esc(line)} {when}</p>'
+                + (f'<ul class="things">{rows}</ul>' if rows else "")
+                + '<p class="small">它需要你的时候，这一句会马上变。</p>')
+    said = now.get("said") or ""
+    return (f'<h1>{esc(STOPPED.get(now.get("reason", ""), STOPPED["answer"]))}</h1>'
+            + (f'<p class="lead">它最后说的是：“{esc(said)}” {when}</p>' if said and now.get("reason") == "answer" else "")
+            + f'<div class="end"><p class="say">要它接着做，在终端里打：</p><div class="btns">{copy_button("/yishuship")}</div></div>')
+
+
+def picked(root: Path) -> dict | None:
+    """The option the user just pressed a key for, above Claude Code's input (hooks/register.ts)."""
+    try:
+        focus = json.loads((root / ".ship" / "live" / "focus.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return focus if isinstance(focus, dict) and focus.get("letter") else None
+
+
+def media(src: str) -> str:
+    """One option shown large: a picture, an animation, a video, or an HTML mock, whatever it is."""
+    url = "/" + src.lstrip("/")
+    ext = src.rsplit(".", 1)[-1].lower()
+    if ext in ("mp4", "webm", "mov"):
+        return f'<video class="big" src="{esc(url)}" autoplay loop muted playsinline controls></video>'
+    if ext == "html":
+        return f'<iframe class="big frame-big" src="{esc(url)}"></iframe>'
+    return f'<img class="big" src="{esc(url)}" alt="">'
+
+
+def focus_view(idea: dict, focus: dict) -> str:
+    groups = visuals(idea)["options"]
+    n = int(focus.get("q") or 1)
+    group = groups[n - 1] if 0 < n <= len(groups) else None
+    opt = next((o for o in group["opts"] if o["letter"] == focus["letter"]), None) if group else None
+    if not opt:
+        return ""
+    title = re.sub(r"^[①-⑳]\s*", "", group["q"])
+    reply = " ".join(f"{i}{l}" for i, l in enumerate(focus.get("picks") or [], 1))
+    src = opt["src"].lstrip("/")
+    return (f'<section class="focus"><p class="nth">你选中了 · 第{NTH[n] if n <= 10 else n}件</p>'
+            f'<h2>{esc(title)}</h2>'
+            f'<p class="lead"><b>{esc(opt["letter"])} {esc(opt["label"])}</b>{"（推荐）" if opt["rec"] else ""}'
+            f'{" · " + esc(opt["looks"]) if opt["looks"] else ""}</p>'
+            f'{media(src)}'
+            f'<p class="small">回复 <b>/yishuship {esc(reply)}</b> 以灰字出现在终端的输入框里，按 Tab 采用，再按回车发出；'
+            f'在终端里按别的数字键，或在下面点别的选项，这里会换成那个。</p></section>')
+
+
 def main_body(idea: dict | None, root: Path) -> str:
     """Exactly one state: showing and asking 满意吗, a one-way-door choice, working, maybe stuck, idle."""
+    now = live(root)
+    if now and now["state"] in ("working", "asking"):
+        return live_view(now, idea)
     if idea is None:
-        return '<p class="open">这个项目现在没有进行中的想法。</p>'
+        return live_view(now, None) if now and now["state"] == "stopped" else '<p class="open">这个项目现在没有进行中的想法。</p>'
     question = waiting_block(idea)
     said = next((f for f in reversed(feedback(idea)) if f["answer"] and not f["done"]), None)
     if said and not question:
@@ -240,16 +343,26 @@ def main_body(idea: dict | None, root: Path) -> str:
     if question and idea.get("waiting", "").startswith("满意吗"):
         return show_view(idea, question)
     if question:
-        return ask_view(idea, question)
+        focus = picked(root)
+        body = ask_view(idea, question, (focus or {}).get("picks"))
+        big = focus_view(idea, focus) if focus else ""
+        cut = body.find("</p>") + len("</p>")  # the first sentence stays on top, the enlarged option under it
+        return body[:cut] + big + body[cut:] if big and cut > 3 else big + body
+    if now and now["state"] == "stopped":
+        return live_view(now, idea)
+    if now and now["state"] == "closed" and now.get("at", 0) / 1000 >= Path(idea["file"]).stat().st_mtime:
+        return ('<h1>Agent 的会话已经关了。要接着做，请在终端里打 /yishuship。</h1>'
+                f'<p class="lead">关掉的时间：{esc(ago(now["age"]))}。进度都记在进度文件里，不会丢。</p>'
+                f'<div class="end"><p class="say">在终端里打：</p><div class="btns">{copy_button("/yishuship")}</div></div>')
     step, thing, place, _ = doing(idea)
     what = thing or step
     age = quiet_for(idea) if idea.get("now") else ""
     if age:
         file, home = Path(idea["file"]).resolve(), root.resolve()
         file = file.relative_to(home).as_posix() if file.is_relative_to(home) else str(file)
-        out = (f'<h1 class="alert">我已经 {esc(age.removesuffix("前"))}没有动静了。</h1>'
-               f'<p class="lead">{f"上次我在<b>{esc(what)}</b>。" if what else ""}可能卡住了，也可能会话已经关了。</p>'
-               f'<div class="end"><p class="say">在终端里打这个，我会从停下的地方接着做：</p>'
+        out = (f'<h1 class="alert">Agent 已经 {esc(age.removesuffix("前"))}没有动静了。</h1>'
+               f'<p class="lead">{f"上次它在<b>{esc(what)}</b>。" if what else ""}可能卡住了，也可能会话已经关了。</p>'
+               f'<div class="end"><p class="say">在终端里打这个，它会从停下的地方接着做：</p>'
                f'<div class="btns">{copy_button("/yishuship")}</div></div>'
                f'<p class="small">进度都记在 {esc(file)} 里，不会丢。</p>')
     elif idea.get("now"):
@@ -259,8 +372,8 @@ def main_body(idea: dict | None, root: Path) -> str:
             f'<li class="{"done" if d else ("here" if n == place else "todo")}">'
             f'<span class="mark">{"✓" if d else ("◐" if n == place else "○")}</span>{esc(text)}</li>'
             for n, (d, text) in enumerate(things, 1))
-        out = ('<h1>你可以去忙别的。</h1>'
-               f'<p class="lead">我正在<b>{esc(what)}</b>。{count}做完后我会停下来，'
+        out = ('<h1>Agent 正在工作，你现在不用操作。</h1>'
+               f'<p class="lead">它正在<b>{esc(what)}</b>。{count}做完后它会停下来，'
                f'把{gl("改之前和改之后", GLOSS["证据"])}的截图放在这里给你看。</p>'
                + (f'<ul class="things">{rows}</ul>' if rows else "")
                + (f'<div class="blk"><p class="small">最近一张截图</p>{pictures_html([latest])}</div>'
@@ -272,13 +385,13 @@ def main_body(idea: dict | None, root: Path) -> str:
         if last:
             was = f'{esc(last["key"])}已经做完{"、也提交了" if last["committed"] else ""}。'
         after = f'下一步是<b>{esc(idea["next"])}</b>。' if idea.get("next") else "下一步还没定。"
-        out = ('<h1>我停在这里，等你叫我。</h1>'
+        out = ('<h1>Agent 现在没有在做事。要它接着做，请在终端里打 /yishuship。</h1>'
                f'<p class="lead">{was}{after}</p>'
-               f'<div class="end"><p class="say">要我接着做，在终端里打：</p><div class="btns">{copy_button("/yishuship")}</div></div>')
+               f'<div class="end"><p class="say">要它接着做，在终端里打：</p><div class="btns">{copy_button("/yishuship")}</div></div>')
     return out
 
 
-def ask_view(idea: dict, question: str) -> str:
+def ask_view(idea: dict, question: str, picked: list | None = None) -> str:
     """A choice only the user can make: while shaping, the mocks first (你是说这样吗), then each
     question with its options side by side as pictures; the reply is built as you pick."""
     seen = visuals(idea)
@@ -286,12 +399,13 @@ def ask_view(idea: dict, question: str) -> str:
     mocks = listed_pictures(idea, "你是说这样吗")
     key = slice_key(idea.get("slice", ""))
     if idea.get("status") == "shaping" or (finished(idea) is None and (mocks or "做不做" in question)):
-        where = "这个想法我先照我的理解画了一下。" if mocks else "这个想法我先理了一下。"
+        where = "Agent 先照它的理解把这个想法画了一下。" if mocks else "Agent 先把这个想法理了一下。"
         top = (f'<p class="open">{where}</p>{pictures_html(mocks)}<p class="say">你是说这样吗？下面是只有你能定的事。</p>'
                if mocks else f'<p class="open">{where}下面的事只有你能定。</p>')
     else:
-        where = f'我做到{gl(key, GLOSS["块"])}，停下来了。' if key else "我停下来了。"
-        top = f'<p class="open">{where}下面{cn(len(groups)) if groups else "的"}事只有你能定。</p>'
+        last = finished(idea)
+        where = f'Agent 做完了“{esc(slice_names(idea).get(last["key"]) or last["key"])}”，停下来了。' if last else "Agent 停下来了，还没开始做。"
+        top = f'<p class="open">{where}有@COUNT@事要你决定。</p>'
     lead = ""
     if not groups:  # no option pictures were written: read the options back from the block itself
         lead, groups = parse_choices(question)
@@ -300,14 +414,17 @@ def ask_view(idea: dict, question: str) -> str:
                 o.update(src="", kind="没有图", box=None)
         lead = f'<p class="lead">{esc(lead)}</p>' if lead else ""
     if not groups:  # not in the choices layout: the block as it was shown in the terminal
-        return (f'{top}<pre class="block">{with_terms(question, seen["terms"])}</pre>'
+        return (f'{top.replace("@COUNT@", "几件")}<pre class="block">{with_terms(question, seen["terms"])}</pre>'
                 '<p class="say">在终端里回复你的选择，我接着做。</p>')
-    top += lead
+    top = top.replace("@COUNT@", cn(len(groups)) + "件") + lead
     marked = any(o["rec"] for g in groups for o in g["opts"])
-    out = top.replace("只有你能定。</p>", f'只有你能定{"，我在推荐的那个上做了标记" if marked else ""}。</p>', 1)
+    out = (top.replace("只有你能定。</p>", f'只有你能定{"，推荐的那个做了标记" if marked else ""}。</p>', 1)
+           .replace("事要你决定。</p>", f'事要你决定。点选项选中{"（推荐的那个做了标记）" if marked else ""}，可以随时换；选好后点“发给 Agent”。</p>', 1))
     code = []
     for n, group in enumerate(groups, 1):
         pick = next((o["letter"] for o in group["opts"] if o["rec"]), group["opts"][0]["letter"])
+        if picked and n <= len(picked) and any(o["letter"] == picked[n - 1] for o in group["opts"]):
+            pick = picked[n - 1]
         code.append(f"{n}{pick}")
         cards = ""
         for o in group["opts"]:
@@ -330,9 +447,11 @@ def ask_view(idea: dict, question: str) -> str:
                 f'<p class="nth">第{NTH[n] if n <= 10 else n}件</p><h2>{with_terms(title, seen["terms"])}</h2>'
                 f'<div class="opts{" many" if len(group["opts"]) >= 3 else ""}">{cards}</div></section>')
     reply = " ".join(code)
-    return (out + f'<div class="end"><p class="reply">你的回复是 <b data-code>{esc(reply)}</b>。复制后贴回终端，我接着做。</p>'
-            f'<div class="btns"><button type="button" class="btn btn-primary" data-copy="/yishuship {esc(reply)}" data-reply>'
-            f'复制 /yishuship {esc(reply)}</button></div></div>')
+    return (out + f'<div class="end"><p class="reply">点选项只是选中，可以随时换。选好后点下面的按钮，回复才会发给 Agent。</p>'
+            f'<div class="btns"><button type="button" class="btn btn-primary" data-send data-reply>'
+            f'发给 Agent：/yishuship {esc(reply)}</button>'
+            f'<button type="button" class="btn btn-secondary" data-copy="/yishuship {esc(reply)}">复制</button></div>'
+            f'<p class="small" data-sent></p></div>')
 
 
 def pictures_html(items: list[tuple[str, str]], stack: bool = False) -> str:
@@ -363,13 +482,14 @@ def show_view(idea: dict, question: str) -> str:
     pictures = listed_pictures(idea, "现在") if early else []
     pics = compare(idea, pictures or parts["pictures"])
     if early:
-        opening = f'<p class="open">{esc(key or "这一块")}比预想的难。我先停下来，给你看现在的样子。</p>'
+        opening = f'<p class="open">“{esc(slice_names(idea).get(key) or key or "这一块")}”比预想的难，Agent 先停下来了。请看现在的样子，然后回复满不满意。</p>'
         line = lambda name: f'<div class="blk"><h2>{name}</h2><p class="say">{esc(said[name])}</p></div>' if name in said else ""
         body_html = line("原本想") + pics + line("现在") + line("难在哪")
     else:
         name = done["key"] if done else (key or "这一块")
-        opening = (f'<p class="open">{esc(name)}做完了。我在真实的 App 里点了一遍，下面是'
-                   f'{gl("改之前和改之后", GLOSS["证据"])}。</p>')
+        name = f'“{slice_names(idea).get(name) or name}”'  # what the slice is; its number means nothing to the user
+        opening = (f'<p class="open">Agent 做完了{esc(name)}。请看下面的'
+                   f'{gl("改之前和改之后", GLOSS["证据"])}，然后回复满不满意。</p>')
         names = {b["id"]: b["text"] for b in trace(idea)["behaviors"]}
         how = {b: f'<span class="ev">{esc(text)}</span>' for b, text in parts["how"].items()}
         for b, text in parts["detail"].items():  # how it was measured stays one click away
@@ -414,7 +534,18 @@ def compare(idea: dict, items: list[tuple[str, str]]) -> str:
             '<button type="button" class="btn btn-secondary" data-point>在图上指出来 <kbd>P</kbd></button></div>'
             f'<div class="stage{" two" if b_path else ""}" data-src="{esc(after)}">{layers}{boxes}</div>'
             f'<div class="caps{" two" if b_path else ""}">{caps}</div>'
-            + (f'<ul class="notes">{listed}</ul>' if listed else "") + '</div>')
+            + (f'<ul class="notes">{listed}</ul>' if listed else "") + '</div>'
+            + more_pictures(items[2:]))
+
+
+def more_pictures(items: list[tuple[str, str]]) -> str:
+    """Pictures after the first before/after pair, one under another, each with what it shows."""
+    figs = "".join(
+        f'<figure class="more"><div class="fig"><img src="/evidence/{esc(path)}" alt="{esc(alt)}" loading="lazy"></div>'
+        f'<figcaption><b>{esc(alt.partition(" · ")[0])}</b>'
+        f'{" · " + esc(alt.partition(" · ")[2]) if alt.partition(" · ")[2] else ""}</figcaption></figure>'
+        for alt, path in items)
+    return f'<div class="blk gallery">{figs}</div>' if figs else ""
 
 
 def project_view(root: Path, idea: dict | None) -> str:
@@ -584,9 +715,14 @@ a{{color:var(--a7);cursor:pointer;text-decoration:none}} a:hover{{background:var
 .opts{{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}}
 .card{{display:flex;flex-direction:column;border-radius:2px;background:var(--surface);padding:0;overflow:hidden;cursor:pointer}}
 .card{{position:relative}} .card:hover{{box-shadow:var(--md)}} .card.sel::after{{content:"";position:absolute;inset:0;border:2px solid var(--a);z-index:2;pointer-events:none}} .card:focus-visible{{outline-offset:2px}}
+.focus{{margin:18px 0 28px;padding:16px 18px;background:#fff;border:2px solid var(--m);border-radius:4px}}
+.focus .big{{display:block;width:100%;max-height:78vh;object-fit:contain;margin:12px 0;border:1px solid var(--line);background:#fff}}
+.focus .frame-big{{height:70vh}}
+.gallery figure.more{{margin:18px 0 0}} .gallery img{{width:100%;border:1px solid var(--line)}}
+.gallery figcaption{{font-size:14px;color:var(--n7);margin-top:6px;line-height:1.5}}
 .pic{{height:240px;background:var(--n2)}} .opts.many{{grid-template-columns:1fr}} .opts.many .pic,.opts.many .frame{{height:300px}} .pic .fig img{{border:0}}
 .cap{{position:absolute;left:10px;bottom:8px;font-size:12px;color:var(--n7);z-index:1;pointer-events:none}}
-.pic .cap{{background:color-mix(in srgb,var(--n2) 85%,transparent);padding:0 4px}}
+.pic .cap{{left:0;right:0;bottom:0;background:var(--n2);padding:3px 10px;border-top:1px solid var(--line)}}
 .ob{{display:flex;flex-direction:column;gap:6px;padding:16px}} .row{{display:flex;justify-content:space-between;align-items:center;gap:8px}}
 .mk{{font-size:14px;color:var(--n5)}} .sel .mk{{color:var(--a7)}} .ot{{font-size:19px;font-weight:600;line-height:1.35}} .oc{{font-size:15px;line-height:1.55;color:var(--n7)}}
 .frame{{position:relative;height:240px;overflow:hidden;background:#fff}} .frame .cover{{position:absolute;inset:0;cursor:zoom-in}}
@@ -650,11 +786,11 @@ Object.assign(f.style,{{position:'absolute',width:W*k+'px',left:-x*k+'px',top:-y
 function place(root){{fit(root);root.querySelectorAll('.fig[data-box]').forEach(f=>{{const b=f.dataset.box.split(',').map(Number),im=f.querySelector('img'),bx=f.querySelector('.box');
 if(b.length<4||!bx)return;const go=()=>{{const W=im.naturalWidth,H=im.naturalHeight;if(!W)return;if(f.closest('.pic'))zoom(f,b,W,H);Object.assign(bx.style,{{display:'block',
 left:b[0]/W*100+'%',top:b[1]/H*100+'%',width:(b[2]-b[0])/W*100+'%',height:(b[3]-b[1])/H*100+'%'}})}};im.complete?go():im.addEventListener('load',go)}})}}
-function picks(){{const code=[];m.querySelectorAll('.q').forEach(q=>{{const l=S.getItem('pick:'+q.dataset.key)||q.dataset.default;
+function picks(){{const code=[];m.querySelectorAll('.q').forEach(q=>{{const l=q.dataset.default;
 let hit=false;q.querySelectorAll('[data-pick]').forEach(c=>{{const on=c.dataset.pick===l;hit=hit||on;c.classList.toggle('sel',on);c.setAttribute('aria-checked',on);
 c.querySelector('.mk').textContent=(on?'● ':'○ ')+c.dataset.pick}});code.push(q.dataset.n+(hit?l:q.dataset.default))}});
 if(!code.length)return;const t=code.join(' '),b=m.querySelector('[data-code]'),r=m.querySelector('[data-reply]');if(b)b.textContent=t;
-if(r&&!r.dataset.busy){{r.dataset.copy='/yishuship '+t;r.textContent='复制 /yishuship '+t}}}}
+if(r&&!r.dataset.busy){{r.dataset.text='/yishuship '+t;r.textContent='发给 Agent：/yishuship '+t}}}}
 function folds(){{m.querySelectorAll('[data-fold]').forEach(f=>{{const open=S.getItem('fold')==='1';f.setAttribute('aria-expanded',open);
 f.querySelector('.tri').textContent=open?'▾':'▸';f.nextElementSibling.hidden=!open}})}}
 function sync(){{const p=location.hash==='#project';document.documentElement.classList.toggle('proj',p);
@@ -662,7 +798,8 @@ m.querySelectorAll('input[name=view]').forEach(i=>i.checked=(i.value==='project'
 addEventListener('hashchange',sync);
 m.addEventListener('change',e=>{{if(e.target.name!=='view')return;history.replaceState(null,'',e.target.value==='project'?'#project':location.pathname);sync()}});
 let last='';async function refresh(){{try{{const r=await fetch('/body');const t=await r.text();if(t===last||m.querySelector('.ask,#answer textarea'))return;last=t;m.innerHTML=t;sync()}}catch(e){{}}}}
-setInterval(refresh,{POLL_MS});
+let ver='';async function check(){{try{{const v=await (await fetch('/v')).text();if(v!==ver){{ver=v;await refresh()}}}}catch(e){{}}}}
+setInterval(check,{POLL_MS});
 let cmp=.5,pointing=false,swept=false;const still=matchMedia('(prefers-reduced-motion: reduce)').matches;
 function stage(){{return m.querySelector('.stage')}}
 function setCmp(p,anim=true){{const st=stage();if(!st||!st.classList.contains('two'))return;cmp=Math.max(0,Math.min(1,p));st.classList.toggle('drag',!anim);
@@ -704,9 +841,15 @@ m.addEventListener('click',e=>{{const li=e.target.closest('.notes li');if(!li)re
 m.addEventListener('mouseover',e=>{{const li=e.target.closest('.notes li');m.querySelectorAll('.pin').forEach((p,i)=>p.classList.toggle('hot',!!li&&String(i+1)===li.dataset.n))}});
 addEventListener('keydown',e=>{{if(e.target.closest&&e.target.closest('textarea'))return;if((e.key==='p'||e.key==='P')&&m.querySelector('[data-point]'))togglePoint();
 if(e.key==='Escape'&&pointing)togglePoint();const k=e.target.closest&&e.target.closest('.knob');if(k&&e.key==='ArrowLeft')setCmp(cmp-.05);if(k&&e.key==='ArrowRight')setCmp(cmp+.05)}});
-function pick(c){{const q=c.closest('.q');S.setItem('pick:'+q.dataset.key,c.dataset.pick);picks()}}
+function pick(c){{const q=c.closest('.q');q.dataset.default=c.dataset.pick;picks();
+const all=[...m.querySelectorAll('.q')].map(x=>x.dataset.default);
+fetch('/pick',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{q:+q.dataset.n,letter:c.dataset.pick,picks:all}})}}).then(()=>{{last='';refresh()}})}}
+async function sendReply(b){{const note=m.querySelector('[data-sent]');b.dataset.busy=1;b.textContent='正在发给 Agent…';
+const r=await fetch('/send',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{text:b.dataset.text||''}})}});
+const t=await r.text();delete b.dataset.busy;if(note)note.textContent=t;if(!r.ok)picks()}}
 document.addEventListener('click',e=>{{const c=e.target.closest('[data-pick]');if(c&&!e.target.closest('.pic .fig,.pic .frame')){{pick(c);return}}
 const f=e.target.closest('[data-fold]');if(f){{S.setItem('fold',S.getItem('fold')==='1'?'0':'1');folds();return}}
+const sb=e.target.closest('[data-send]');if(sb){{if(!sb.dataset.busy)sendReply(sb);return}}
 const b=e.target.closest('[data-copy]');if(b){{navigator.clipboard.writeText(b.dataset.copy).then(()=>{{b.dataset.busy=1;b.textContent='已复制';
 setTimeout(()=>{{delete b.dataset.busy;b.textContent='复制 '+b.dataset.copy;picks()}},1600)}})}}}});
 m.addEventListener('keydown',e=>{{const c=e.target.closest('[data-pick]');if(c&&(e.key==='Enter'||e.key===' ')){{e.preventDefault();pick(c)}}}});
@@ -739,6 +882,81 @@ addEventListener('keydown',e=>{{if(e.key==='Escape')shrink()}});
 
 # ---------- serving and opening ----------
 
+def version(root: Path) -> str:
+    """Changes whenever anything the page shows may have changed: the files it reads, or the minute."""
+    ship = root / ".ship"
+    seen = [int(time.time() // 30)]
+    for path in (ship / "live" / "now.json", ship / "live" / "focus.json", ship / "PROJECT.md", *sorted((ship / "ideas").glob("*.md"))):
+        try:
+            st = path.stat()
+            seen.append(f"{path.name}:{st.st_mtime_ns}:{st.st_size}")
+        except OSError:
+            seen.append(path.name)
+    return hashlib.sha1(repr(seen).encode()).hexdigest()[:16]
+
+
+def needs_you(root: Path) -> str:
+    """What the user must do now, in a few words for the cmux sidebar; empty when nothing."""
+    now = live(root)
+    if not now or now["state"] == "closed":
+        return ""
+    if now["state"] == "asking":
+        return "Agent 在问你一个问题"
+    if now["state"] != "stopped":
+        return ""
+    idea = current(str(root))
+    waiting = (idea or {}).get("waiting", "")
+    if waiting.startswith("满意吗"):
+        return "等你说满不满意"
+    if waiting:
+        groups = visuals(idea)["options"] or parse_choices(waiting_block(idea))[1]
+        return f"等你决定 {len(groups)} 项" if groups else "等你决定"
+    return {"error": "Agent 出错停下了", "refusal": "Agent 拒绝后停下了"}.get(now.get("reason", ""), "")
+
+
+def send_reply(root: Path, text: str) -> tuple[bool, str]:
+    """Types the user's reply into the agent's terminal through cmux, only while the agent waits."""
+    if not re.fullmatch(r"/yishuship( \d+[A-Z])+|/yishuship (满意|不行)", text):
+        return False, "这不是一个可以代发的回复。"
+    now = live(root)
+    if not now or now["state"] != "stopped":
+        return False, "Agent 正在工作，等它停下再发。你的选择已经记下了。"
+    cmux, surface = shutil.which("cmux"), os.environ.get("CMUX_SURFACE_ID")
+    if not cmux or not surface:
+        return False, "这里不是在 cmux 里打开的，没法代发。请点“复制”，贴到终端里。"
+    for args in (["send-key", "--surface", surface, "ctrl+u"],   # clear a half-typed line first
+                 ["send", "--surface", surface, text],
+                 ["send-key", "--surface", surface, "enter"]):
+        if subprocess.run([cmux, *args], capture_output=True, timeout=5).returncode:
+            return False, "cmux 没能把回复打进终端。请点“复制”，贴到终端里。"
+    return True, f"已经发给 Agent：{text}。它开始工作后，这里会跟着变。"
+
+
+def cmux_bridge(root: Path) -> None:
+    """Shows in cmux what yishuship knows and cmux does not: a sidebar pill saying what the user
+    must do, only while they must, and one flash of the agent's terminal when that starts.
+    cmux already notifies when a turn ends and shows the agent running, so neither is repeated here."""
+    cmux = shutil.which("cmux")
+    if not cmux or not os.environ.get("CMUX_WORKSPACE_ID"):
+        return
+    shown = None
+    while True:
+        try:
+            need = needs_you(root)
+        except Exception:
+            need = ""
+        if need != shown:
+            if need:
+                subprocess.run([cmux, "set-status", "yishuship", need, "--icon", "hand.raised.fill",
+                                "--color", "#d6006c", "--priority", "10"], capture_output=True, timeout=5)
+                if not shown:
+                    subprocess.run([cmux, "trigger-flash"], capture_output=True, timeout=5)
+            else:
+                subprocess.run([cmux, "clear-status", "yishuship"], capture_output=True, timeout=5)
+            shown = need
+        time.sleep(0.3)
+
+
 def state_file(root: Path) -> Path:
     key = hashlib.sha1(str(root).encode()).hexdigest()[:12]
     return Path(tempfile.gettempdir()) / f"yishuship-page-{key}.json"
@@ -751,10 +969,12 @@ def serve(root: Path) -> None:
     class Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
             last[0] = time.time()
-            if self.path == "/body":
+            if self.path in ("/body", "/v"):
                 polled[0] = time.time()
             kind = "text/html; charset=utf-8"
-            if self.path == "/ping":
+            if self.path == "/v":
+                out, kind = version(root).encode(), "text/plain"
+            elif self.path == "/ping":
                 out = json.dumps({"root": str(root), "page_idle": time.time() - polled[0]}).encode()
             elif self.path.startswith(("/evidence/", "/screens/")):
                 name = self.path.split("/")[1]
@@ -784,6 +1004,23 @@ def serve(root: Path) -> None:
                 box = ",".join(str(int(v)) for v in data.get("box", [])[:4])
                 note = " ".join(str(data["text"]).split()).replace(" · ", "，")
                 add_feedback(file, f"- [ ] {time.strftime('%Y-%m-%d')} · {note} · ../{data['src'].lstrip('/')}#box={box}")
+            elif file and self.path == "/pick" and isinstance(data.get("picks"), list):
+                groups = visuals(idea)["options"]
+                n, letter = int(data.get("q") or 1), str(data.get("letter", ""))
+                opt = next((o for o in groups[n - 1]["opts"] if o["letter"] == letter), None) if 0 < n <= len(groups) else None
+                live_dir = root / ".ship" / "live"
+                live_dir.mkdir(parents=True, exist_ok=True)
+                (live_dir / "focus.json").write_text(json.dumps(
+                    {"q": n, "letter": letter, "src": (opt or {}).get("src", "").lstrip("/"),
+                     "picks": [str(x) for x in data["picks"]], "by": "page"}, ensure_ascii=False))
+            elif file and self.path == "/send":
+                ok, said = send_reply(root, str(data.get("text", "")))
+                out = said.encode()
+                self.send_response(200 if ok else 409)
+                self.send_header("Content-Type", "text/plain; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(out)
+                return
             elif file and self.path == "/answer" and data.get("answer") in ("满意", "不行") and idea.get("waiting", "").startswith("满意吗"):
                 answer(file, data["answer"], " ".join(str(data.get("note") or "").split()).replace(" · ", "，"))
             else:
@@ -804,6 +1041,7 @@ def serve(root: Path) -> None:
             time.sleep(5)
         server.shutdown()
     threading.Thread(target=watch, daemon=True).start()
+    threading.Thread(target=cmux_bridge, args=(root,), daemon=True).start()
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))  # so the finally below still runs
     try:
         server.serve_forever()
