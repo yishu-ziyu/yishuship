@@ -17,7 +17,18 @@ to one of three steps (also invocable directly):
 `hooks/register.ts` runs inside Claude Code (early access: only with
 `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1`): it watches every step of the agent,
 writes `.ship/live/` (kept out of git), and draws what the user must do now
-above the input box. `scripts/page.py` reads the same files for the page and
+above the input box. It also registers three tools. `board` shows a live board above the
+prompt: the behaviors the user confirmed, what the agent does now and for
+which behavior, a rhythm strip of its tool calls, edits outside the planned
+areas, and for an optimization task the metric as aligned step bars against the
+target; a number counts as measured only when the module saw its command run
+this session, and which steps to point out is the agent's call, its reason
+shown. `review` serves a folder of agent-made pages through `scripts/review.py`
+and opens one beside the terminal: every part gets a 「说一句」 button, each
+comment comes back to the agent as a prompt, and `reply` puts the answer next
+to that part. The terminal is for status; anything to look at closely goes on a
+page (in this terminal, clicks do not reach the band and pictures there are too
+small to read). In a project without `.ship/ideas` only the board shows. `scripts/page.py` reads the same files for the page and
 tells cmux (sidebar status, a flash, typing a confirmed reply). Without the
 flag everything falls back to the progress file.
 
@@ -70,9 +81,7 @@ echo '{"cwd":"'"$PWD"'"}' | bash scripts/statusline.sh   # no line unless an ide
 HOME=$(mktemp -d) bash scripts/install.sh --no-obsidian </dev/null   # fresh-user install still works
 wc -l skills/*/*.md | tail -1      # size check, not a hard limit
 CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 claude plugin validate "$PWD/.claude-plugin/plugin.json"   # hooks module loads
-claude -p "/plugin-types /tmp/cc-types" && cp hooks/register.ts /tmp/cc-types/ && \
-  npx -y -p typescript@5 tsc --noEmit --strict --target es2023 --lib es2023 \
-  --module esnext --moduleResolution bundler --skipLibCheck /tmp/cc-types/claude-code.d.ts /tmp/cc-types/register.ts
+npx -y -p typescript@5 tsc -p .   # type-check hooks/; tsconfig.json extends the types Claude Code writes beside a plugin it loads from this folder
 ```
 
 Behavior changes to the skills are measured with the eval suite before and
@@ -86,9 +95,12 @@ an idea in progress.
 
 ## Shipping a change to the installed plugin
 
-Installed from a local checkout (what `scripts/install.sh` does), Claude Code
-loads the plugin in place: edits here take effect at the next session start or
-`/reload-plugins`. For a release, bump `version` in both
+Installed as a plugin, Claude Code loads a copy taken at install or update
+time (`~/.claude/plugins/cache/yishuship/yishuship/<version>`), not this
+checkout: edits here reach it only through a version bump and
+`claude plugin update`. To run this checkout itself, name it in
+`CLAUDE_CODE_PLUGIN_DIRS` (the `env` block of `~/.claude/settings.json`) and
+disable `yishuship@yishuship`; the folder is then watched and reloads on save. For a release, bump `version` in both
 `.claude-plugin/plugin.json` and `marketplace.json` so copies installed from
 GitHub pick it up with `claude plugin update yishuship@yishuship`. The status
 line script always runs from this checkout.

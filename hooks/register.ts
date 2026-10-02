@@ -59,6 +59,7 @@ function describe(tool: string, input: Record<string, unknown>): string {
     case 'Agent': case 'Task': return `派了一个子 Agent：${clip(String(input.description ?? ''), 40)}`
     case 'Skill': return `在用技能：${String(input.skill ?? '')}`
     case 'TodoWrite': return '在更新任务清单'
+    case 'AskUserQuestion': return '在等你回答问题'
     default: return `在用 ${tool.replace(/^mcp__/, '').replace(/__/g, ' · ')}`
   }
 }
@@ -74,6 +75,7 @@ function firstQuestion(input: Record<string, unknown>): string {
 // One Claude Code process runs one session, so the state lives at the top of the module.
 const S: {
   root?: string // the project holding .ship/ideas; unset → do nothing
+  cwd?: string // where the session started: the project whose files the board watches
   session: string
   log: string
   lines: string[]
@@ -84,16 +86,19 @@ const S: {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function save($: any, patch: Partial<Now>, step?: Record<string, unknown>): Promise<void> {
+  // The state in memory changes at once, before any write: the band redraws right after a
+  // step and must show that step, not the one before (it lagged one step behind when the
+  // state changed only after the write queue reached it).
+  const at = Date.now()
+  const changed = patch.state !== undefined && patch.state !== S.now?.state
+  const now: Now = { ...(S.now ?? { session: S.session, state: 'stopped', since: at }), ...patch, session: S.session, at }
+  if (changed) now.since = at
+  if (patch.state && patch.state !== 'asking') delete now.question
+  if (patch.state && patch.state !== 'stopped') delete now.reason
+  S.now = now
   if (!S.root) return S.writing
   const r = S.root
   S.writing = S.writing.then(async () => {
-    const at = await $.clock.now()
-    const changed = patch.state !== undefined && patch.state !== S.now?.state
-    const now: Now = { ...(S.now ?? { session: S.session, state: 'stopped', since: at }), ...patch, session: S.session, at }
-    if (changed) now.since = at
-    if (patch.state && patch.state !== 'asking') delete now.question
-    if (patch.state && patch.state !== 'stopped') delete now.reason
-    S.now = now
     await $.fs.write(`${r}/.ship/live/now.json`, JSON.stringify(now))
     if (step) {
       S.lines.push(JSON.stringify({ at: new Date(at).toISOString(), ...step }))
@@ -293,14 +298,489 @@ async function syncPicks($: any): Promise<void> {
   $.ui.invalidate('ui.render')
 }
 
+// ---- the board: what the user asked for, how far it is, and whether the numbers are real ----
+//
+// One board per session, drawn above the prompt. Its spine is the behaviors the user confirmed.
+// An optimization task adds a metric: before, target, and each measurement. A measurement counts as
+// measured only when this module saw the command that produced it run in this session; otherwise
+// it is shown as the agent's estimate. The rhythm strip and the outside-the-plan warning come from
+// the tool calls this module sees, never from what the agent says.
+
+const BOARD_TOOL = 'mcp__yishuship__board'
+const BOARD_DESCRIPTION = `Show the user (a product person) a live board above their prompt: what they asked for, how far it is,
+and for an optimization task how much the metric moved. Create it after the user confirmed the behaviors, before
+changing code; update it as work moves.
+
+Create: title, kind ("feature" or "optimize"), behaviors (what the user will see or be able to do, in their words,
+max 14 characters each, no code names), optionally areas (product names of the places you plan to change, with their
+files or folders) so edits elsewhere in the project are flagged, and for kind "optimize" a metric
+{ name, unit, before, target } where before carries the command that measured it.
+Update: doing { text, for } is the line "what you are doing now, for which behavior" (product words, no file names,
+for is the behavior's 1-based number); states [{ n, state }] with state todo, doing, done (ready for the user to check)
+or accepted (the user checked it); measure { value, command, note } after you measured the metric: command is the
+shell command you ran to get the value (shown as measured only if a command containing it ran in this session), note says in a few
+words what changed since the last measurement. When the time splits into steps, give steps (the same breakdown
+each time) and focus { steps, why }: which steps to point out now and why, judged for this task (the ones whose
+numbers change what to do next); the board draws before and now as aligned step bars against the target.
+clear: true removes the board.`
+
+type Behavior = { text: string; state: 'todo' | 'doing' | 'done' | 'accepted' }
+type Step = { name: string; value: number }
+type Reading = { value: number; isMeasured: boolean; note: string; steps: Step[] }
+// What the agent chose to point out in the breakdown, and why; the plugin only draws it.
+type Focus = { steps: string[]; why: string }
+type Metric = { name: string; unit: string; before: Reading; target: number; readings: Reading[]; focus?: Focus }
+type Beat = { at: number; kind: 'read' | 'edit' | 'command' }
+const B: {
+  title: string
+  kind: 'feature' | 'optimize'
+  behaviors: Behavior[]
+  doing?: { text: string; for: number }
+  metric?: Metric
+  areas: { name: string; files: string[] }[]
+  outside: Map<string, number>
+  commands: string[] // shell commands seen this session, for telling measured numbers from estimates
+  pictures: { file: string; label: string; ratio: number }[] // real screenshots; a press opens one full size
+  beats: Beat[]
+} = { title: '', kind: 'feature', behaviors: [], areas: [], outside: new Map(), commands: [], beats: [], pictures: [] }
+
+// A file pattern names a file or a folder (ending in /), relative or absolute, `*` and `**` allowed.
+// A relative one matches at any folder boundary, so it does not depend on where the session started.
+function patternTest(pattern: string): RegExp {
+  const p = pattern.trim().replace(/^\.\//, '')
+  const body = p.split(/(\*\*\/?|\*)/).map((s) =>
+    s.startsWith('**') ? '(?:.*/)?' : s === '*' ? '[^/]*' : s.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('')
+  const tail = p.endsWith('/') ? '.*' : '(?:/.*)?'
+  return new RegExp(`${p.startsWith('/') ? '^' : '(?:^|/)'}${body}${tail}$`)
+}
+
+const isNumber = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x)
+
+function reading(x: unknown, what: string): Reading {
+  const r = x as { value?: unknown; command?: unknown; note?: unknown; steps?: unknown } | undefined
+  if (!r || !isNumber(r.value)) throw new Error(`${what}.value must be a number.`)
+  const command = typeof r.command === 'string' ? r.command.trim() : ''
+  const steps = Array.isArray(r.steps) ? r.steps.map((x, i) => {
+    const st = x as { name?: unknown; value?: unknown }
+    if (typeof st.name !== 'string' || !st.name || !isNumber(st.value)) throw new Error(`${what}.steps[${i}] needs a name and a number.`)
+    return { name: st.name, value: st.value }
+  }) : []
+  // A measurement often runs inside a longer command (a script written and run in one go).
+  return { value: r.value, isMeasured: command !== '' && B.commands.some((c) => c.includes(command)),
+    note: typeof r.note === 'string' ? r.note : '', steps }
+}
+
+function focusOf(x: unknown): Focus {
+  const f = x as { steps?: unknown; why?: unknown }
+  if (!Array.isArray(f.steps) || f.steps.some((n) => typeof n !== 'string') || typeof f.why !== 'string' || !f.why) {
+    throw new Error('focus needs steps (names from the breakdown) and why (one short sentence for the user).')
+  }
+  return { steps: f.steps as string[], why: f.why }
+}
+
+function setBoard(input: Record<string, unknown>): string {
+  if (input.clear === true) {
+    Object.assign(B, { title: '', kind: 'feature', behaviors: [], doing: undefined, metric: undefined, areas: [] })
+    B.outside.clear()
+    return 'The board is removed.'
+  }
+  if (input.title !== undefined) {
+    const behaviors = input.behaviors
+    if (typeof input.title !== 'string' || !input.title) throw new Error('title must be a non-empty string.')
+    if (input.kind !== 'feature' && input.kind !== 'optimize') throw new Error('kind must be feature or optimize.')
+    if (!Array.isArray(behaviors) || !behaviors.length || behaviors.some((b) => typeof b !== 'string' || !b)) {
+      throw new Error('behaviors must be a non-empty list of short strings.')
+    }
+    let metric: Metric | undefined
+    if (input.kind === 'optimize') {
+      const m = input.metric as { name?: unknown; unit?: unknown; before?: unknown; target?: unknown } | undefined
+      if (!m || typeof m.name !== 'string' || typeof m.unit !== 'string' || !isNumber(m.target)) {
+        throw new Error('an optimize task needs metric { name, unit, before { value, command }, target }.')
+      }
+      metric = { name: m.name, unit: m.unit, before: reading(m.before, 'metric.before'), target: m.target, readings: [] }
+      const f = (m as { focus?: unknown }).focus
+      if (f !== undefined) metric.focus = focusOf(f)
+    }
+    const areas = Array.isArray(input.areas) ? input.areas.map((a, i) => {
+      const x = a as { name?: unknown; files?: unknown }
+      if (typeof x.name !== 'string' || !Array.isArray(x.files) || x.files.some((f) => typeof f !== 'string' || !f)) {
+        throw new Error(`areas[${i}] needs a name and a list of files or folders.`)
+      }
+      return { name: x.name, files: x.files as string[] }
+    }) : []
+    Object.assign(B, { title: input.title, kind: input.kind, metric, areas, doing: undefined,
+      behaviors: (behaviors as string[]).map((text) => ({ text, state: 'todo' })) })
+    B.outside.clear()
+  } else if (!B.title) {
+    throw new Error('There is no board yet: create it with title, kind and behaviors.')
+  }
+  if (input.doing !== undefined) {
+    const d = input.doing as { text?: unknown; for?: unknown }
+    if (typeof d.text !== 'string' || !d.text) throw new Error('doing.text must be a non-empty string.')
+    if (d.for !== undefined && (!isNumber(d.for) || !B.behaviors[d.for - 1])) throw new Error(`doing.for must be 1 to ${B.behaviors.length}.`)
+    B.doing = { text: d.text, for: (d.for as number | undefined) ?? 0 }
+    if (B.doing.for && B.behaviors[B.doing.for - 1]!.state === 'todo') B.behaviors[B.doing.for - 1]!.state = 'doing'
+  }
+  for (const s of Array.isArray(input.states) ? input.states : []) {
+    const { n, state } = s as { n?: unknown; state?: unknown }
+    if (!isNumber(n) || !B.behaviors[n - 1]) throw new Error(`states: n must be 1 to ${B.behaviors.length}.`)
+    if (state !== 'todo' && state !== 'doing' && state !== 'done' && state !== 'accepted') throw new Error('states: state must be todo, doing, done or accepted.')
+    B.behaviors[n - 1]!.state = state
+  }
+  if (Array.isArray(input.pictures)) {
+    B.pictures = input.pictures.map((x, i) => {
+      const pic = x as { file?: unknown; label?: unknown; ratio?: unknown }
+      if (typeof pic.file !== 'string' || !pic.file.startsWith('/') || !pic.file.endsWith('.png')) {
+        throw new Error(`pictures[${i}].file must be an absolute path to a PNG.`)
+      }
+      if (!isNumber(pic.ratio) || pic.ratio <= 0) throw new Error(`pictures[${i}].ratio must be the picture's height divided by its width.`)
+      return { file: pic.file, label: typeof pic.label === 'string' ? pic.label : '', ratio: pic.ratio }
+    })
+  }
+  let measured = ''
+  if (input.measure !== undefined) {
+    if (!B.metric) throw new Error('measure needs an optimize board with a metric.')
+    const r = reading(input.measure, 'measure')
+    B.metric.readings.push(r)
+    if ((input.measure as { focus?: unknown }).focus !== undefined) B.metric.focus = focusOf((input.measure as { focus?: unknown }).focus)
+    measured = r.isMeasured ? ' The value is shown as measured.' : ' The command was not seen in this session, so the value is shown as an estimate.'
+  }
+  return `Board "${B.title}" updated.${measured}`
+}
+
+const BOARD_SCHEMA = {
+  type: 'object',
+  properties: {
+    title: { type: 'string', description: 'What the task does, in product words. Giving it creates a new board.' },
+    kind: { type: 'string', enum: ['feature', 'optimize'] },
+    behaviors: { type: 'array', items: { type: 'string' }, description: 'What the user will see or be able to do; max 14 characters each.' },
+    areas: {
+      type: 'array',
+      items: { type: 'object', properties: { name: { type: 'string' }, files: { type: 'array', items: { type: 'string' } } }, required: ['name', 'files'] },
+    },
+    metric: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'What is measured, in the user\'s words, e.g. "说完话 → 手机开始动".' },
+        unit: { type: 'string', description: 'e.g. "秒".' },
+        before: { type: 'object', properties: { value: { type: 'number' }, command: { type: 'string' }, steps: { type: 'array', description: 'The same breakdown every time: each part of the measured time, in order, in the user\'s words.', items: { type: 'object', properties: { name: { type: 'string' }, value: { type: 'number' } }, required: ['name', 'value'] } } }, required: ['value'] },
+        focus: { type: 'object', description: 'Which steps to point out to the user now and why: the ones whose numbers change what to do next. Your judgment for this task, not a fixed rule.', properties: { steps: { type: 'array', items: { type: 'string' } }, why: { type: 'string' } }, required: ['steps', 'why'] },
+        target: { type: 'number' },
+      },
+      required: ['name', 'unit', 'before', 'target'],
+    },
+    doing: { type: 'object', properties: { text: { type: 'string' }, for: { type: 'integer' } }, required: ['text'] },
+    states: {
+      type: 'array',
+      items: { type: 'object', properties: { n: { type: 'integer' }, state: { type: 'string', enum: ['todo', 'doing', 'done', 'accepted'] } }, required: ['n', 'state'] },
+    },
+    measure: { type: 'object', properties: { value: { type: 'number' }, command: { type: 'string' }, note: { type: 'string' }, steps: { type: 'array', description: 'The same breakdown every time: each part of the measured time, in order, in the user\'s words.', items: { type: 'object', properties: { name: { type: 'string' }, value: { type: 'number' } }, required: ['name', 'value'] } }, focus: { type: 'object', description: 'Which steps to point out to the user now and why: the ones whose numbers change what to do next. Your judgment for this task, not a fixed rule.', properties: { steps: { type: 'array', items: { type: 'string' } }, why: { type: 'string' } }, required: ['steps', 'why'] } }, required: ['value'] },
+    pictures: {
+      type: 'array',
+      description: 'Real screenshots on the board, absolute PNG paths with a short label and ratio (height / width). A whole phone screen is unreadable at board size: crop to the part that changed (one card, one control) so the words can be read; the user can open each full size. Replaces the previous set; [] removes them.',
+      items: { type: 'object', properties: { file: { type: 'string' }, label: { type: 'string' }, ratio: { type: 'number' } }, required: ['file', 'ratio'] },
+    },
+    clear: { type: 'boolean' },
+  },
+}
+
+// What a tool call adds to the board: a beat on the rhythm strip, a seen command, an edit outside the plan.
+function observe(tool: string, input: Record<string, unknown>): void {
+  if (tool === 'Bash' && typeof input.command === 'string') {
+    B.commands.push(input.command.trim())
+    if (B.commands.length > 300) B.commands.shift()
+  }
+  if (!B.title) return
+  const isEdit = ['Edit', 'MultiEdit', 'Write', 'NotebookEdit'].includes(tool)
+  const kind = isEdit ? 'edit' : tool === 'Bash' ? 'command' : ['Read', 'Grep', 'Glob'].includes(tool) ? 'read' : undefined
+  if (kind) {
+    B.beats.push({ at: Date.now(), kind })
+    if (B.beats.length > 200) B.beats.shift()
+  }
+  const path = String(input.file_path ?? input.notebook_path ?? '')
+  // Only the project's own files count: scratch files elsewhere (/tmp) are not part of the work.
+  if (isEdit && path && B.areas.length && S.cwd && path.startsWith(`${S.cwd}/`)
+      && !B.areas.some((a) => a.files.some((f) => patternTest(f).test(path)))) {
+    B.outside.set(path, (B.outside.get(path) ?? 0) + 1)
+  }
+}
+
+function toBase64(bytes: Uint8Array): string {
+  let s = ''
+  for (const b of bytes) s += String.fromCharCode(b)
+  return btoa(s)
+}
+
+// One row of cells: [codePoint, foreground, background] each, as a Raster takes them.
+function cells(row: [number, number, number][]): string {
+  const words = new Uint32Array(row.length * 3)
+  row.forEach((c, i) => words.set(c, i * 3))
+  return toBase64(new Uint8Array(words.buffer))
+}
+
+const DEFAULT = 0x01000000
+const GREEN = 0x5fd38d
+const BLUE = 0x7a9cf0
+const GRAY = 0x8a8790
+const DARK = 0x3a3a40
+
+// The last two minutes, one cell per beat; thinking time between beats shows as dots, one per 5 seconds.
+// Empty when nothing happened in that window: the row is then left out.
+function rhythm(max: number, isWorking: boolean): { cells: string; columns: number } | undefined {
+  const row: [number, number, number][] = []
+  const now = Date.now()
+  const beats = B.beats.filter((b) => now - b.at < 120_000)
+  beats.forEach((b, i) => {
+    const gap = Math.min(3, Math.floor(((beats[i + 1]?.at ?? (isWorking ? now : b.at)) - b.at) / 5000))
+    row.push(b.kind === 'edit' ? [0x2588, GREEN, DEFAULT] : b.kind === 'command' ? [0x2584, GRAY, DEFAULT] : [0x2581, BLUE, DEFAULT])
+    for (let k = 0; k < gap; k++) row.push([0xb7, DARK, DEFAULT])
+  })
+  if (!row.length) return undefined
+  const shown = row.slice(-max)
+  return { cells: cells(shown), columns: shown.length }
+}
+
+function meterCells(m: Metric, columns: number): string {
+  const current = m.readings.at(-1)?.value ?? m.before.value
+  const share = Math.max(0, Math.min(1, (m.before.value - current) / (m.before.value - m.target)))
+  const fill = Math.round(share * columns)
+  const row: [number, number, number][] = []
+  for (let x = 0; x < columns; x++) row.push(x < fill ? [0x2588, GREEN, DEFAULT] : [0x2591, DARK, DEFAULT])
+  return cells(row)
+}
+
+const FOCUS_COLORS = [0xa07ab8, 0xc09060, 0x6a8fd0, 0xd07a8a]
+const SHORTER = 0x3f9d66
+const QUIET = 0x3a3a40
+
+function cellWidth(s: string): number {
+  return [...s].reduce((w, ch) => w + (/[\u1100-\u115f\u2e80-\ua4cf\uac00-\ud7a3\uf900-\ufaff\ufe30-\ufe4f\uff00-\uff60]/.test(ch) ? 2 : 1), 0)
+}
+
+// One reading as a bar of its steps, on a shared scale: a focused step in its own colour, a step that got
+// shorter than before in green, the rest quiet; past the target line the cells are hatched (still to cut).
+function stepBar(r: Reading, m: Metric, perCell: number, isNow: boolean): { cells: string; columns: number; labels: string } {
+  const row: [number, number, number][] = []
+  const target = Math.round(m.target / perCell)
+  let labels = ''
+  let col = 0
+  for (const st of r.steps) {
+    const was = m.before.steps.find((b) => b.name === st.name)
+    const isShorter = isNow && was !== undefined && was.value - st.value >= 0.05
+    const fi = m.focus?.steps.indexOf(st.name) ?? -1
+    const color = isShorter ? SHORTER : fi >= 0 ? FOCUS_COLORS[fi % FOCUS_COLORS.length]! : QUIET
+    const n = Math.max(1, Math.round(st.value / perCell))
+    const at = row.length
+    for (let k = 0; k < n; k++) {
+      const x = row.length
+      row.push(x === target ? [0x2503, GREEN, color] : x > target ? [0x2592, color, DEFAULT] : [k === 0 && x > 0 ? 0x258f : 0x20, 0x18181a, color])
+    }
+    const text = isShorter ? `${st.name} −${fmt(was!.value - st.value)}` : !isNow && fi >= 0 ? `${st.name} ${fmt(st.value)}` : ''
+    if (text) {
+      const start = Math.max(at, col + (col ? 2 : 0))
+      labels += ' '.repeat(start - col) + text
+      col = start + cellWidth(text)
+    }
+  }
+  while (row.length <= target) row.push(row.length === target ? [0x2503, GREEN, DEFAULT] : [0x20, DEFAULT, DEFAULT])
+  return { cells: cells(row), columns: row.length, labels }
+}
+
+function fmt(n: number): string {
+  return String(Math.round(n * 100) / 100)
+}
+
+const STATE_MARK: Record<Behavior['state'], [string, string]> = {
+  todo: ['○', 'gray'], doing: ['●', 'green'], done: ['✓', '#9fb6f5'], accepted: ['✓✓', '#9fb6f5'],
+}
+const STATE_WORD: Record<Behavior['state'], string> = { todo: '', doing: '在做', done: '做好，待你验', accepted: '你验过' }
+
+// The before and now step bars, aligned, with the agent's reason for what it points out.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function breakdown(el: any, m: Metric, last: Reading | undefined, width: number, source: (r: Reading) => string): unknown[] {
+  const { Box, Text, Raster } = el
+  const longest = Math.max(m.before.value, m.target, last?.value ?? 0)
+  const perCell = longest / width
+  const rows: unknown[] = []
+  const add = (key: string, head: string, r: Reading, isNow: boolean) => {
+    const bar = stepBar(r, m, perCell, isNow)
+    rows.push(
+      h(Text, { key: `${key}h`, dimColor: true }, `${head} ${fmt(r.value)} ${m.unit} · ${source(r)}`),
+      h(Box, { key: `${key}b`, flexDirection: 'row' },
+        h(Raster, { key: `${key}r`, columns: bar.columns, rows: 1, cells: bar.cells }),
+        h(Text, { dimColor: true }, ` 目标 ${fmt(m.target)}`)),
+      bar.labels ? h(Text, { key: `${key}l`, color: isNow ? 'green' : undefined, dimColor: !isNow }, bar.labels) : null)
+  }
+  add('before', '改前', m.before, false)
+  if (last?.steps.length) add('now', '现在', last, true)
+  if (m.focus) rows.push(h(Text, { key: 'focus', dimColor: true }, `突出：${m.focus.steps.join('、')}。${m.focus.why}`))
+  return rows
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function drawBoard($: any, el: any, columns: number, isWorking: boolean): RenderElement {
+  const { Box, Text, Raster } = el
+  const done = B.behaviors.filter((b) => b.state === 'done' || b.state === 'accepted').length
+  const { Button } = el
+  const parts: unknown[] = [h(Box, { key: 'title', flexDirection: 'row' },
+    h(Text, { bold: true, color: '#d6a8ff' }, B.title),
+    h(Text, { dimColor: true }, `  ${done} / ${B.behaviors.length} 条做好  `),
+    // The user closes the board themselves; it would otherwise stay until the agent clears it.
+    h(Button, { key: 'close', plain: true, dimColor: true, onPress: () => { setBoard({ clear: true }); $.ui.invalidate('ui.render') } }, '×'))]
+
+  const m = B.metric
+  if (m) {
+    const last = m.readings.at(-1)
+    const current = last ?? m.before
+    const gained = m.before.value - current.value
+    const left = current.value - m.target
+    const share = Math.round(Math.max(0, gained / (m.before.value - m.target)) * 100)
+    const source = (r: Reading) => (r.isMeasured ? '实测' : 'AI 推测')
+    const width = Math.max(10, Math.min(36, columns - 40))
+    parts.push(
+      h(Text, { key: 'mname', dimColor: true }, m.name),
+      h(Box, { key: 'mnow', flexDirection: 'row' },
+        h(Text, {}, '现在 '),
+        h(Text, { bold: true, color: last ? (last.isMeasured ? 'green' : 'yellow') : undefined }, `${fmt(current.value)} ${m.unit}`),
+        h(Text, { color: current.isMeasured ? 'green' : 'yellow' }, ` · ${source(current)}`),
+        h(Text, { dimColor: true }, last
+          ? `　${gained >= 0 ? '已快了' : '反而慢了'} ${fmt(Math.abs(gained))} ${m.unit}，${left > 0 ? `离目标还差 ${fmt(left)} ${m.unit}` : '已达到目标'}`
+          : '　还没有改后的测量')),
+      ...(m.before.steps.length
+        ? breakdown(el, m, last, Math.max(20, Math.min(56, columns - 16)), source)
+        : [h(Box, { key: 'meter', flexDirection: 'row' },
+            h(Text, { dimColor: true }, `改前 ${fmt(m.before.value)} `),
+            h(Raster, { key: 'meterbar', columns: width, rows: 1, cells: meterCells(m, width) }),
+            h(Text, { dimColor: true }, ` 目标 ${fmt(m.target)} ${m.unit}`),
+            h(Text, { color: 'green' }, `  完成 ${share}%`)),
+          h(Text, { key: 'mlab', dimColor: true }, `改前的数字：${source(m.before)}`)]),
+      last?.note ? h(Text, { key: 'mnote', dimColor: true }, `最近一次：${last.note}`) : null)
+  }
+
+  if (B.pictures.length) {
+    const { Image, Button } = el
+    // A terminal cell is about twice as tall as wide. Wide crops get the board's width so their words
+    // can be read; tall pictures (a whole screen) stay small and are meant to be opened.
+    const wide = Math.max(20, Math.min(64, Math.floor((columns - 4) / B.pictures.length) - 2))
+    parts.push(h(Box, { key: 'pictures', flexDirection: 'row', gap: 2, marginTop: 1 },
+      ...B.pictures.map((pic, i) => {
+        const cols = pic.ratio < 1 ? wide : 14
+        const rows = Math.max(3, Math.min(30, Math.round((cols * pic.ratio) / 2)))
+        return h(Box, { key: `pic${i}`, flexDirection: 'column', width: cols },
+          h(Box, { key: `cap${i}`, flexDirection: 'row' },
+            h(Text, { dimColor: true, wrap: 'truncate-end' }, `${pic.label} `),
+            h(Button, { key: `zoom${i}`, hotkey: String(i + 1), plain: true, dimColor: true,
+              onPress: () => { void $.process.run(['open', '-a', 'Preview', pic.file]) } }, '放大')),
+          h(Image, { key: `img${i}`, source: { file: pic.file, format: 'png' }, columns: cols, rows, alt: pic.label || '截图' }))
+      })))
+  }
+
+  B.behaviors.forEach((b, i) => {
+    const [mark, color] = STATE_MARK[b.state]
+    const isCurrent = b.state === 'doing'
+    parts.push(h(Box, { key: `b${i}`, flexDirection: 'row' },
+      h(Box, { width: 3 }, h(Text, { color }, mark)),
+      h(Text, { color: isCurrent ? 'green' : undefined, dimColor: b.state === 'todo' }, b.text),
+      STATE_WORD[b.state] ? h(Text, { dimColor: !isCurrent, color: isCurrent ? 'green' : undefined }, `　${STATE_WORD[b.state]}`) : null))
+  })
+
+  if (isWorking && B.doing) {
+    const target = B.doing.for ? B.behaviors[B.doing.for - 1]?.text : ''
+    parts.push(h(Text, { key: 'doing', color: 'green' }, `→ ${B.doing.text}${target ? `，为了「${target}」` : ''}`))
+  }
+  const beats = rhythm(Math.max(10, Math.min(60, columns - 34)), isWorking)
+  if (beats) {
+    parts.push(h(Box, { key: 'rhythm', flexDirection: 'row' },
+      h(Text, { dimColor: true }, '节奏 '),
+      h(Raster, { key: 'beats', columns: beats.columns, rows: 1, cells: beats.cells }),
+      h(Text, { dimColor: true }, '  ▁读 █改 ▄命令 ·想')))
+  }
+
+  const outside = [...B.outside.entries()]
+  if (outside.length) {
+    parts.push(h(Text, { key: 'outside', color: 'yellow' },
+      `⚠ 动了计划外的地方：${outside.slice(0, 3).map(([p]) => base(p)).join('、')}${outside.length > 3 ? ` 等 ${outside.length} 个文件` : ''}`))
+  }
+  return h(Box, { flexDirection: 'column' }, ...parts) as RenderElement
+}
+
+// ---- page review: the user comments on a page the agent made, without leaving it ----
+//
+// `review` serves a folder of pages through scripts/review.py and opens one; each part of a page gets a
+// 「说一句」 button. This module watches the folder's .review/inbox.jsonl and hands each new comment to the
+// agent as a prompt; the agent answers with `reply`, which the page shows next to the same part.
+// Which folder is under review survives a reload of this module in /tmp, keyed by the session.
+
+const REVIEW_TOOL = 'mcp__yishuship__review'
+const REPLY_TOOL = 'mcp__yishuship__reply'
+const R: { dir: string; port: number; seen: number } = { dir: '', port: 0, seen: 0 }
+
+function portFor(dir: string): number {
+  let h = 0
+  for (const ch of dir) h = (h * 31 + ch.charCodeAt(0)) >>> 0
+  return 8770 + (h % 200)
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function reviewLines($: any, name: 'inbox' | 'replies'): Promise<Record<string, string>[]> {
+  const text = String(await $.fs.read(`${R.dir}/.review/${name}.jsonl`).catch(() => ''))
+  return text.split('\n').filter((l) => l.trim()).map((l) => JSON.parse(l) as Record<string, string>)
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function startReview($: any, page: string): Promise<string> {
+  const dir = page.slice(0, page.lastIndexOf('/'))
+  const port = portFor(dir)
+  const alive = await $.http.fetch(`http://127.0.0.1:${port}/__thread?page=`).then((r: { status: number }) => r.status === 200, () => false)
+  if (!alive) {
+    await $.process.run(['bash', '-c', 'nohup python3 "$0" "$1" "$2" >/dev/null 2>&1 &', `${$.plugin.root}/scripts/review.py`, dir, String(port)])
+    await $.clock.sleep(600)
+  }
+  const isNewDir = R.dir !== dir
+  R.dir = dir
+  R.port = port
+  if (isNewDir) R.seen = (await reviewLines($, 'inbox')).length // comments from before are not new
+  await $.fs.write(`/tmp/yishuship-review-${S.session}.json`, JSON.stringify(R))
+  const url = `http://127.0.0.1:${port}/${encodeURI(page.slice(dir.length + 1))}`
+  await $.process.run(['open', url])
+  return url
+}
+
+// New comments become prompts. A comment written while the agent works waits in the queue for its turn.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function pollReview($: any): Promise<void> {
+  if (!R.dir) return
+  const inbox = await reviewLines($, 'inbox')
+  const fresh = inbox.slice(R.seen)
+  if (!fresh.length) return
+  R.seen = inbox.length
+  await $.fs.write(`/tmp/yishuship-review-${S.session}.json`, JSON.stringify(R))
+  for (const c of fresh) {
+    await $.prompt.submit({ text: `【页面意见】${c.page} 的「${c.label}」（编号 ${c.id}）：${c.text}\n` +
+      `看完或改完后，用 reply 工具回复编号 ${c.id}，一两句话；改了页面就说改了哪里，用户刷新就能看到。` })
+  }
+}
+
 export const register: Register = (on) => {
   on('session.start', async ($, e, next) => {
     const result = await next(e)
     try {
+      await $.tool.register({ name: 'board', description: BOARD_DESCRIPTION, inputSchema: BOARD_SCHEMA })
+      await $.tool.register({ name: 'review',
+        description: 'Open a page you made (an HTML file) for the user to review in the browser beside the terminal. Each part of the page gets a 「说一句」 button; the user\'s comments come back to you as prompts marked 【页面意见】 with an id, and you answer each with the reply tool. Use it whenever the user should judge something visual (before/after, layouts, motion) instead of reading text. Mark the parts with data-review="name" on sections, or the page\'s section and .card elements are used.',
+        inputSchema: { type: 'object', properties: { page: { type: 'string', description: 'Absolute path of the HTML file.' } }, required: ['page'] } })
+      await $.tool.register({ name: 'reply',
+        description: 'Answer a 【页面意见】 comment; the answer shows on the page next to the part the user pointed at. One or two sentences in the user\'s language; if you changed the page, say what changed.',
+        inputSchema: { type: 'object', properties: { id: { type: 'string' }, text: { type: 'string' } }, required: ['id', 'text'] } })
+      // While the agent works, the step's clock moves every second, so a long step still looks alive.
+      $.clock.every(1000, () => { if (S.now?.state === 'working') $.ui.invalidate('ui.render') })
       let dir = String(e.cwd).replace(/\/+$/, '')
+      S.cwd = dir
       while (dir && !(await $.fs.exists(`${dir}/.ship/ideas`))) dir = dir.slice(0, dir.lastIndexOf('/'))
       S.root = dir || undefined
       S.session = await $.session.id()
+      try { Object.assign(R, JSON.parse(String(await $.fs.read(`/tmp/yishuship-review-${S.session}.json`)))) } catch { /* no review open */ }
+      $.clock.every(700, () => void pollReview($).catch(() => undefined))
       const day = new Date(await $.clock.now()).toISOString().slice(0, 10)
       S.log = `${day}-${S.session.slice(0, 8)}`
       // what is in .ship/live/ stays on this machine, whatever the project's own .gitignore says
@@ -308,7 +788,7 @@ export const register: Register = (on) => {
       await save($, { state: 'stopped', reason: 'start', since: await $.clock.now() }, { who: 'engine', what: 'session.start' })
       P.pending = await readPending($)
       $.clock.every(500, () => void syncPicks($))
-      for (const job of await jobs($)) C.work = C.work.then(() => readTurn($, job, false)).catch(() => undefined)
+      if (S.root) for (const job of await jobs($)) C.work = C.work.then(() => readTurn($, job, false)).catch(() => undefined)
       $.ui.invalidate('ui.render')
     } catch { /* watching only */ }
     return result
@@ -348,8 +828,39 @@ export const register: Register = (on) => {
   })
 
   on('tool.call', async ($, e, next) => {
-    if (!S.root) return next(e)
     const input = e as unknown as Record<string, unknown>
+    if ((e.tool as string) === REVIEW_TOOL) {
+      const page = String(input.page ?? '')
+      if (!page.startsWith('/') || !page.endsWith('.html')) return { deny: 'page must be an absolute path to an .html file.' }
+      if (!(await $.fs.exists(page))) return { deny: `No file at ${page}.` }
+      return { result: `Opened ${await startReview($, page)} for review.` }
+    }
+    if ((e.tool as string) === REPLY_TOOL) {
+      if (!R.dir) return { deny: 'No page is under review: open one with the review tool first.' }
+      const id = String(input.id ?? '')
+      const text = String(input.text ?? '').trim()
+      if (!text) return { deny: 'text must not be empty.' }
+      if (!(await reviewLines($, 'inbox')).some((c) => c.id === id)) return { deny: `No comment with id ${id}.` }
+      const file = `${R.dir}/.review/replies.jsonl`
+      const before = String(await $.fs.read(file).catch(() => ''))
+      await $.fs.write(file, before + JSON.stringify({ id, at: new Date().toISOString(), text }) + '\n')
+      return { result: 'The answer is on the page.' }
+    }
+    if ((e.tool as string) === BOARD_TOOL) {
+      try {
+        const text = setBoard(input)
+        $.ui.invalidate('ui.render')
+        return { result: text }
+      } catch (err) {
+        return { deny: (err as Error).message }
+      }
+    }
+    if (!S.root) {
+      // No idea in progress here: only the board follows the work, when one is shown.
+      observe(e.tool, input)
+      if (B.title) $.ui.invalidate('ui.render')
+      return next(e)
+    }
     const sub = typeof e.agentId === 'string'
     if ((e.tool as string) === 'AskUserQuestion' && !sub) {
       const question = firstQuestion(input)
@@ -360,8 +871,10 @@ export const register: Register = (on) => {
       return result
     }
     const did = (sub ? '子 Agent ' : '') + describe(e.tool, input)
+    observe(e.tool, input)
+    const saved = save($, { did }, { who: sub ? 'subagent' : 'agent', tool: e.tool, did, id: e.tool_use_id })
     $.ui.invalidate('ui.render')
-    await save($, { did }, { who: sub ? 'subagent' : 'agent', tool: e.tool, did, id: e.tool_use_id })
+    await saved
     return next(e)
   })
 
@@ -389,9 +902,12 @@ export const register: Register = (on) => {
   // A pending choice: one box per option with a small picture (where the terminal draws
   // pictures; its words elsewhere), a digit picks it and the page beside the terminal shows it large.
   on('ui.render', { component: 'AbovePrompt' }, ($, e, next) => {
-    if (!S.root || e.props.hasSurvey || e.surface !== 'terminal') return next(e)
-    const { Box, Text, Button, Image } = $.ui.resolve(e)
+    if ((!S.root && !B.title) || e.props.hasSurvey || e.surface !== 'terminal') return next(e)
+    const el = $.ui.resolve(e)
+    const { Box, Text, Button, Image } = el
     const now = S.now
+    // The board, when one is shown: while the agent works, and outside an idea's project at any time.
+    if (B.title && (now?.state === 'working' || !S.root)) return drawBoard($, el, e.props.bodyColumns, now?.state === 'working')
     const line = (color: string, text: string, rest = '') => h(Box, { flexDirection: 'row' }, h(Text, { color, bold: true }, `● ${text}`), rest ? h(Text, { dimColor: true }, `  ${rest}`) : null) as RenderElement
     if (!now || now.state === 'closed') return next(e)
     const rules = C.suggested > 0 && now.state === 'stopped'

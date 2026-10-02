@@ -12,6 +12,8 @@ design left in chat is lost at the next session.
 | Behaviors cross more than one screen | The screen flow: each screen, what the user can act on there, an arrow to where it leads. No visual detail. |
 | A behavior branches (works / fails, empty / loading / error) | A state diagram, or a sequence diagram with both branches. |
 | Before building a slice | The design: the parts involved and how data or requests move between them (a box-and-arrow picture), marking what is new or changed; as before → after when an existing shape changes. For a bug, the same picture with the broken step marked. |
+| While building | The `board` tool: the confirmed behaviors, what is being done for which one, and for an optimization the metric as step bars against the target, each number measured or estimated. |
+| The user must judge something visual | A page opened with the `review` tool: they comment on any part in place, and `reply` answers there. |
 | Done | Before → after, as in `skills/shared/done.md`. |
 | A decision | The layout in `skills/shared/asking.md`. |
 
