@@ -24,9 +24,11 @@ areas, and for an optimization task the metric as aligned step bars against the
 target; a number counts as measured only when the module saw its command run
 this session, and which steps to point out is the agent's call, its reason
 shown. `review` serves a folder of agent-made pages through `scripts/review.py`
-and opens one beside the terminal: every part gets a 「说一句」 button, each
-comment comes back to the agent as a prompt, and `reply` puts the answer next
-to that part. The terminal is for status; anything to look at closely goes on a
+and opens one beside the terminal: every part gets a 「说一句」 button, and so
+do words the user selects or one element they click; each comment comes back to
+the agent as a prompt with what it points at, and `reply` puts the answer next
+to that part. The page reloads itself, at the same place, when the agent
+changes a file in its folder. The terminal is for status; anything to look at closely goes on a
 page (in this terminal, clicks do not reach the band and pictures there are too
 small to read). In a project without `.ship/ideas` only the board shows. `scripts/page.py` reads the same files for the page and
 tells cmux (sidebar status, a flash, typing a confirmed reply). Without the

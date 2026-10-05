@@ -707,8 +707,9 @@ function drawBoard($: any, el: any, columns: number, isWorking: boolean): Render
 // ---- page review: the user comments on a page the agent made, without leaving it ----
 //
 // `review` serves a folder of pages through scripts/review.py and opens one; each part of a page gets a
-// 「说一句」 button. This module watches the folder's .review/inbox.jsonl and hands each new comment to the
-// agent as a prompt; the agent answers with `reply`, which the page shows next to the same part.
+// 「说一句」 button, and so do words the user selects; the comment box can also point at one element.
+// This module watches the folder's .review/inbox.jsonl and hands each new comment to the agent as a
+// prompt; the agent answers with `reply`, which the page shows next to the same part.
 // Which folder is under review survives a reload of this module in /tmp, keyed by the session.
 
 const REVIEW_TOOL = 'mcp__yishuship__review'
@@ -756,8 +757,10 @@ async function pollReview($: any): Promise<void> {
   R.seen = inbox.length
   await $.fs.write(`/tmp/yishuship-review-${S.session}.json`, JSON.stringify(R))
   for (const c of fresh) {
-    await $.prompt.submit({ text: `【页面意见】${c.page} 的「${c.label}」（编号 ${c.id}）：${c.text}\n` +
-      `看完或改完后，用 reply 工具回复编号 ${c.id}，一两句话；改了页面就说改了哪里，用户刷新就能看到。` })
+    const spot = c.quote ? `\n用户选中的字：「${c.quote}」`
+      : c.selector ? `\n用户点中的元素：<${c.tag}> ${c.selector}${c.snippet ? `，开头是「${c.snippet}」` : ''}` : ''
+    await $.prompt.submit({ text: `【页面意见】${c.page} 的「${c.label}」（编号 ${c.id}）：${c.text}${spot}\n` +
+      `看完或改完后，用 reply 工具回复编号 ${c.id}，一两句话；改了页面就说改了哪里，页面会自己刷新。` })
   }
 }
 
@@ -767,7 +770,7 @@ export const register: Register = (on) => {
     try {
       await $.tool.register({ name: 'board', description: BOARD_DESCRIPTION, inputSchema: BOARD_SCHEMA })
       await $.tool.register({ name: 'review',
-        description: 'Open a page you made (an HTML file) for the user to review in the browser beside the terminal. Each part of the page gets a 「说一句」 button; the user\'s comments come back to you as prompts marked 【页面意见】 with an id, and you answer each with the reply tool. Use it whenever the user should judge something visual (before/after, layouts, motion) instead of reading text. Mark the parts with data-review="name" on sections, or the page\'s section and .card elements are used.',
+        description: 'Open a page you made (an HTML file) for the user to review in the browser beside the terminal. Each part of the page gets a 「说一句」 button; the user\'s comments come back to you as prompts marked 【页面意见】 with an id, and you answer each with the reply tool. Use it whenever the user should judge something visual (before/after, layouts, motion) instead of reading text. A comment may quote the words the user selected or name the element they clicked (selector and tag). Mark the parts with data-review="name" on sections, or the page\'s section and .card elements are used. The open page reloads itself when you change a file in its folder.',
         inputSchema: { type: 'object', properties: { page: { type: 'string', description: 'Absolute path of the HTML file.' } }, required: ['page'] } })
       await $.tool.register({ name: 'reply',
         description: 'Answer a 【页面意见】 comment; the answer shows on the page next to the part the user pointed at. One or two sentences in the user\'s language; if you changed the page, say what changed.',
