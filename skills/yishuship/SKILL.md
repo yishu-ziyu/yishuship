@@ -1,7 +1,6 @@
 ---
 name: yishuship
-description: "The one entry point: decides from the progress files whether to shape a new idea, record and fix a bug, ask the pending question, continue the current idea, or show every idea. Use when the user types /yishuship, with or without a sentence after it."
-disable-model-invocation: true
+description: "The one entry point: decides from the progress files whether to shape a new idea, record and fix a bug, ask the pending question, continue the current idea, or show every idea. Use when the user types /yishuship, with or without a sentence after it, and when, in a project whose .ship/ideas holds an idea in progress, the user's words continue that idea, answer its waiting question, or ask to change the product. Not for a small edit the user has fully specified."
 ---
 
 # yishuship
@@ -30,6 +29,9 @@ open`, the user looks at the page, so pictures and the full block go into the
 progress file (`../shared/asking.md`) and the terminal gets one line in the
 user's language: what you need, how to reply, 看旁边的页面. After `no page`,
 print the full block. Then:
+
+Started without the command, the user's message counts as the sentence typed
+after it.
 
 A reply may also come from the page: an unticked line under `## 你的反馈`
 (`../shared/asking.md`) counts as the sentence typed after the command.

@@ -710,11 +710,21 @@ function drawBoard($: any, el: any, columns: number, isWorking: boolean): Render
 // 「说一句」 button, and so do words the user selects; the comment box can also point at one element.
 // This module watches the folder's .review/inbox.jsonl and hands each new comment to the agent as a
 // prompt; the agent answers with `reply`, which the page shows next to the same part.
-// Which folder is under review survives a reload of this module in /tmp, keyed by the session.
+// `show` uses the same server and the same comments for one page per session, the one beside the
+// terminal that shows what the agent is talking about (scripts/show.py draws it).
+// Which folders are watched survives a reload of this module in /tmp, keyed by the session.
 
 const REVIEW_TOOL = 'mcp__yishuship__review'
 const REPLY_TOOL = 'mcp__yishuship__reply'
-const R: { dir: string; port: number; seen: number } = { dir: '', port: 0, seen: 0 }
+const SHOW_TOOL = 'mcp__yishuship__show'
+type Watched = { dir: string; port: number; seen: number }
+const R: Watched = { dir: '', port: 0, seen: 0 }   // the folder opened with `review`
+const SH: Watched = { dir: '', port: 0, seen: 0 }  // the page `show` fills
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function saveWatched($: any): Promise<void> {
+  await $.fs.write(`/tmp/yishuship-review-${S.session}.json`, JSON.stringify({ review: R, show: SH }))
+}
 
 function portFor(dir: string): number {
   let h = 0
@@ -723,13 +733,16 @@ function portFor(dir: string): number {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function reviewLines($: any, name: 'inbox' | 'replies'): Promise<Record<string, string>[]> {
-  const text = String(await $.fs.read(`${R.dir}/.review/${name}.jsonl`).catch(() => ''))
+async function reviewLines($: any, name: 'inbox' | 'replies', w: Watched = R): Promise<Record<string, string>[]> {
+  if (!w.dir) return []
+  const text = String(await $.fs.read(`${w.dir}/.review/${name}.jsonl`).catch(() => ''))
   return text.split('\n').filter((l) => l.trim()).map((l) => JSON.parse(l) as Record<string, string>)
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function startReview($: any, page: string): Promise<string> {
+// Serves the page's folder (once) and watches its comments. Opens the page unless it is open already.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function startReview($: any, page: string, w: Watched = R): Promise<string> {
   const dir = page.slice(0, page.lastIndexOf('/'))
   const port = portFor(dir)
   const alive = await $.http.fetch(`http://127.0.0.1:${port}/__thread?page=`).then((r: { status: number }) => r.status === 200, () => false)
@@ -737,31 +750,128 @@ async function startReview($: any, page: string): Promise<string> {
     await $.process.run(['bash', '-c', 'nohup python3 "$0" "$1" "$2" >/dev/null 2>&1 &', `${$.plugin.root}/scripts/review.py`, dir, String(port)])
     await $.clock.sleep(600)
   }
-  const isNewDir = R.dir !== dir
-  R.dir = dir
-  R.port = port
-  if (isNewDir) R.seen = (await reviewLines($, 'inbox')).length // comments from before are not new
-  await $.fs.write(`/tmp/yishuship-review-${S.session}.json`, JSON.stringify(R))
+  const isNewDir = w.dir !== dir
+  w.dir = dir
+  w.port = port
+  if (isNewDir) w.seen = (await reviewLines($, 'inbox', w)).length // comments from before are not new
+  await saveWatched($)
   const url = `http://127.0.0.1:${port}/${encodeURI(page.slice(dir.length + 1))}`
-  await $.process.run(['open', url])
+  if (w === R || isNewDir || !alive) await $.process.run(['open', url])
   return url
 }
 
 // New comments become prompts. A comment written while the agent works waits in the queue for its turn.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function pollReview($: any): Promise<void> {
-  if (!R.dir) return
-  const inbox = await reviewLines($, 'inbox')
-  const fresh = inbox.slice(R.seen)
-  if (!fresh.length) return
-  R.seen = inbox.length
-  await $.fs.write(`/tmp/yishuship-review-${S.session}.json`, JSON.stringify(R))
+  for (const w of [R, SH]) {
+    const inbox = await reviewLines($, 'inbox', w)
+    const fresh = inbox.slice(w.seen)
+    if (!fresh.length) continue
+    w.seen = inbox.length
+    await saveWatched($)
+    await submitComments($, fresh)
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function submitComments($: any, fresh: Record<string, string>[]): Promise<void> {
   for (const c of fresh) {
     const spot = c.quote ? `\n用户选中的字：「${c.quote}」`
       : c.selector ? `\n用户点中的元素：<${c.tag}> ${c.selector}${c.snippet ? `，开头是「${c.snippet}」` : ''}` : ''
     await $.prompt.submit({ text: `【页面意见】${c.page} 的「${c.label}」（编号 ${c.id}）：${c.text}${spot}\n` +
-      `看完或改完后，用 reply 工具回复编号 ${c.id}，一两句话；改了页面就说改了哪里，页面会自己刷新。` })
+      `看完或改完后，用 reply 工具回复编号 ${c.id}，一两句话；改了页面就说改了哪里，页面会自己刷新。` +
+      '答案只放在页面上：终端里不要再写一遍，只说一句已经在页面上答了。' })
   }
+}
+
+// In every turn's context, every project: what goes to the page instead of the terminal.
+const SHOW_RULE = '用户很难从终端里的长段文字看懂东西。凡是要给他看的东西——表格、图、前后对比、界面变化的截图或录像、计划、要他核对的结果——'
+  + '都用 show 工具放到终端旁边的页面上，终端里只用一句话说它是什么、在右边。问他一个决定、说一句进展，照常在终端说。'
+
+// The agent puts one thing on the page beside the terminal: an HTML fragment, or a file (picture, video, page).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function showThing($: any, input: Record<string, unknown>): Promise<string> {
+  const title = String(input.title ?? '').trim()
+  const fragment = typeof input.html === 'string' ? input.html.trim() : ''
+  const file = typeof input.file === 'string' ? input.file.trim() : ''
+  if (!title) throw new Error('title must not be empty.')
+  if (!fragment === !file) throw new Error('Give exactly one of html or file.')
+  if (file && !(file.startsWith('/') && (await $.fs.exists(file)))) throw new Error(`No file at ${file}.`)
+  const dir = SH.dir || `/tmp/yishuship-show/${S.session.slice(0, 8)}`
+  const now = new Date(await $.clock.now()).toISOString()
+  const id = `t${now.replace(/\D/g, '').slice(8, 17)}`
+  const item: Record<string, string> = { id, at: now, title }
+  if (fragment) item.html = fragment
+  else {
+    item.file = `.show/files/${id}${file.slice(file.lastIndexOf('.')).toLowerCase()}`
+    await $.process.run(['bash', '-c', 'mkdir -p "$(dirname "$1")" && cp "$0" "$1"', file, `${dir}/${item.file}`])
+  }
+  const list = `${dir}/.show/items.jsonl`
+  await $.process.run(['mkdir', '-p', `${dir}/.show`])
+  await $.fs.write(list, String(await $.fs.read(list).catch(() => '')) + JSON.stringify(item) + '\n')
+  const drawn = await $.process.run(['python3', `${$.plugin.root}/scripts/show.py`, dir])
+  if (drawn.exitCode !== 0) throw new Error(`The page could not be drawn: ${drawn.stderr.slice(-300)}`)
+  const url = await startReview($, `${dir}/index.html`, SH)
+  return `On the page beside the terminal (${url}), as the newest thing. In the terminal, say in one line what it is and that it is on the right; do not repeat it there. The user's comments on it come back as 【页面意见】 prompts.`
+}
+
+// ---- the product itself, running where the user looks ----
+//
+// .ship/产品.md says how this project's product starts, how to tell it runs, and how to show a change.
+// Once the user has confirmed it, each message they send makes sure the product runs, and a turn that
+// changed files of the product ends by showing the change. The commands run in the background and
+// write to .ship/live/产品.log; nothing waits for them.
+
+const PRODUCT_FORMAT = `# 这个产品怎么跑在你旁边
+
+- 启动：\`<命令，在项目根目录运行，把产品打开在用户眼前>\`
+- 在跑吗：\`<命令，产品在跑时退出码为 0>\`
+- 改完刷新：\`<命令，让用户看到最新的代码，例如重新构建再重开>\`
+- 发布：<还没定，或发布的命令>
+- 你确认过：<用户确认这几条的日期；没确认前留空>`
+
+type Product = { exists: boolean; confirmed: boolean; start: string; running: string; refresh: string }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function readProduct($: any): Promise<Product> {
+  const text = String(await $.fs.read(`${S.root}/.ship/产品.md`).catch(() => ''))
+  const step = (name: string) => text.match(new RegExp(`^- ${name}[：:]\\s*\`([^\`]+)\``, 'm'))?.[1]?.trim() ?? ''
+  return { exists: !!text.trim(), confirmed: /^- 你确认过[：:][ \t]*\d/m.test(text),
+    start: step('启动'), running: step('在跑吗'), refresh: step('改完刷新') }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function inBackground($: any, command: string): Promise<void> {
+  await $.process.run(['bash', '-c', 'cd "$0" && nohup bash -c "$1" >>.ship/live/产品.log 2>&1 </dev/null &', S.root, command])
+}
+
+// Files of the product changed since the turn began. Hidden folders (.ship, .git, .claude, which Claude
+// Code itself writes to) and build output do not count.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function productChanged($: any): Promise<boolean> {
+  const skip = ['.?*', 'node_modules', 'build', 'dist', 'out', 'target', 'DerivedData']
+    .flatMap((d) => ['-name', d, '-o']).slice(0, -1)
+  const r = await $.process.run(['find', '.', '(', ...skip, ')', '-prune', '-o', '-type', 'f', '-newer', '.ship/live/本轮开始', '-print', '-quit'],
+    { cwd: S.root, timeoutMs: 20_000 }).catch(() => undefined)
+  return !!r?.stdout.trim()
+}
+
+// What every turn's context says about this project: the idea in progress, and the product beside the user.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function projectContext($: any): Promise<string> {
+  const slug = await currentIdea($)
+  const meta = slug ? frontMatter(String(await $.fs.read(`${S.root}/.ship/ideas/${slug}.md`))) : {}
+  const idea = slug
+    ? `这个项目里有进行中的想法「${meta.title ?? slug}」（.ship/ideas/${slug}.md）${meta.waiting ? `，在等用户：${meta.waiting}` : ''}。`
+      + '用户这句话如果是在接着这个想法、回答它在等的问题、或者想改这个产品，就用 yishuship 技能接着走，不必等用户敲命令；一句话说得清的小改动直接做。'
+    : ''
+  const p = await readProduct($)
+  const product = !p.exists
+    ? `这个产品还不会自己跑在用户旁边。这一轮第一次停下来给用户看东西之前，先弄清它怎么启动、怎么判断在跑、改完怎么让用户看到最新的样子（做法见 ${$.plugin.root}/docs/product-beside.md），照下面的格式写进 .ship/产品.md，请用户确认一次，确认后写上日期：\n${PRODUCT_FORMAT}`
+    : !p.confirmed
+      ? '.ship/产品.md 还没经用户确认。下一次停下时请他确认一次，确认后在「你确认过」后写上日期。'
+      : '产品会自己跑在用户旁边：他每次说话时会确保它在跑；这一轮改了产品的文件，结束时会自动刷新。停下来要他判断时，请他直接在产品上看、上手试，说清看哪里、点什么。'
+  return [idea, product].filter(Boolean).join('\n\n')
 }
 
 export const register: Register = (on) => {
@@ -772,6 +882,13 @@ export const register: Register = (on) => {
       await $.tool.register({ name: 'review',
         description: 'Open a page you made (an HTML file) for the user to review in the browser beside the terminal. Each part of the page gets a 「说一句」 button; the user\'s comments come back to you as prompts marked 【页面意见】 with an id, and you answer each with the reply tool. Use it whenever the user should judge something visual (before/after, layouts, motion) instead of reading text. A comment may quote the words the user selected or name the element they clicked (selector and tag). Mark the parts with data-review="name" on sections, or the page\'s section and .card elements are used. The open page reloads itself when you change a file in its folder.',
         inputSchema: { type: 'object', properties: { page: { type: 'string', description: 'Absolute path of the HTML file.' } }, required: ['page'] } })
+      await $.tool.register({ name: 'show',
+        description: 'Put the thing you are talking about on the page beside the terminal, where the user sees it at once: a table, a diagram, a before/after, a screenshot or recording of the product, a plan, a result to check. Use it instead of writing that thing into the terminal; there, say in one line what it is and that it is on the right. One call, one thing: the newest fills the page and older ones stay on a timeline. Give either html (a fragment: a table, inline SVG, <img src="file:..."> does not work, so pass pictures and videos as file) or file (absolute path of a picture, video or HTML page).',
+        inputSchema: { type: 'object', properties: {
+          title: { type: 'string', description: 'What it is, in the user\'s language, a few words.' },
+          html: { type: 'string', description: 'An HTML fragment to show.' },
+          file: { type: 'string', description: 'Absolute path of a picture, video or HTML page to show.' } },
+        required: ['title'] } })
       await $.tool.register({ name: 'reply',
         description: 'Answer a 【页面意见】 comment; the answer shows on the page next to the part the user pointed at. One or two sentences in the user\'s language; if you changed the page, say what changed.',
         inputSchema: { type: 'object', properties: { id: { type: 'string' }, text: { type: 'string' } }, required: ['id', 'text'] } })
@@ -782,7 +899,11 @@ export const register: Register = (on) => {
       while (dir && !(await $.fs.exists(`${dir}/.ship/ideas`))) dir = dir.slice(0, dir.lastIndexOf('/'))
       S.root = dir || undefined
       S.session = await $.session.id()
-      try { Object.assign(R, JSON.parse(String(await $.fs.read(`/tmp/yishuship-review-${S.session}.json`)))) } catch { /* no review open */ }
+      try {
+        const saved = JSON.parse(String(await $.fs.read(`/tmp/yishuship-review-${S.session}.json`)))
+        Object.assign(R, saved.review ?? saved)
+        if (saved.show) Object.assign(SH, saved.show)
+      } catch { /* no page watched yet */ }
       $.clock.every(700, () => void pollReview($).catch(() => undefined))
       const day = new Date(await $.clock.now()).toISOString().slice(0, 10)
       S.log = `${day}-${S.session.slice(0, 8)}`
@@ -801,6 +922,14 @@ export const register: Register = (on) => {
     P.pending = undefined
     $.ui.invalidate('ui.render')
     await save($, { state: 'working', said: clip(e.text, 200), did: '' })
+    if (S.root) {
+      await $.fs.write(`${S.root}/.ship/live/本轮开始`, '').catch(() => undefined)
+      const p = await readProduct($)
+      if (p.confirmed && p.start && p.running) {
+        const r = await $.process.run(['bash', '-c', p.running], { cwd: S.root, timeoutMs: 10_000 }).catch(() => undefined)
+        if (r && r.exitCode !== 0) await inBackground($, p.start)
+      }
+    }
     return next(e)
   })
 
@@ -818,16 +947,18 @@ export const register: Register = (on) => {
     return next(e)
   })
 
-  // The rules the user confirmed, in every turn's context: this project's and their own.
+  // In every turn's context: the idea in progress and the product here, and the rules the user confirmed.
   on('prompt.context', async ($, e, next) => {
     const result = await next(e)
-    if (!S.root) return result
+    const blocks = [...result.blocks, { name: 'yishuship 给用户看的东西', text: SHOW_RULE }]
+    if (!S.root) return { ...result, blocks }
+    const project = await projectContext($).catch(() => '')
+    if (project) blocks.push({ name: 'yishuship 这个项目', text: project })
     const mine = String(await $.fs.read(`${S.root}/.ship/live/个人规则.md`).catch(() => '')).trim()
     const here = String(await $.fs.read(`${S.root}/.ship/规则.md`).catch(() => '')).trim()
-    if (!mine && !here) return result
-    const text = '这些是这位用户纠正过、并确认要一直遵守的做法。开工前先对照；要做的事和其中一条冲突时，停下来用一句话说清冲突，其余时候照做、不必提起。\n\n'
-      + [mine && `对他所有的项目：\n${mine}`, here && `对这个项目：\n${here}`].filter(Boolean).join('\n\n')
-    return { ...result, blocks: [...result.blocks, { name: 'yishuship 你确认过的规则', text }] }
+    if (mine || here) blocks.push({ name: 'yishuship 你确认过的规则', text: '这些是这位用户纠正过、并确认要一直遵守的做法。开工前先对照；要做的事和其中一条冲突时，停下来用一句话说清冲突，其余时候照做、不必提起。\n\n'
+      + [mine && `对他所有的项目：\n${mine}`, here && `对这个项目：\n${here}`].filter(Boolean).join('\n\n') })
+    return { ...result, blocks }
   })
 
   on('tool.call', async ($, e, next) => {
@@ -838,13 +969,17 @@ export const register: Register = (on) => {
       if (!(await $.fs.exists(page))) return { deny: `No file at ${page}.` }
       return { result: `Opened ${await startReview($, page)} for review.` }
     }
+    if ((e.tool as string) === SHOW_TOOL) {
+      try { return { result: await showThing($, input) } } catch (err) { return { deny: String((err as Error).message ?? err) } }
+    }
     if ((e.tool as string) === REPLY_TOOL) {
-      if (!R.dir) return { deny: 'No page is under review: open one with the review tool first.' }
       const id = String(input.id ?? '')
       const text = String(input.text ?? '').trim()
       if (!text) return { deny: 'text must not be empty.' }
-      if (!(await reviewLines($, 'inbox')).some((c) => c.id === id)) return { deny: `No comment with id ${id}.` }
-      const file = `${R.dir}/.review/replies.jsonl`
+      let w: Watched | undefined
+      for (const x of [R, SH]) if ((await reviewLines($, 'inbox', x)).some((c) => c.id === id)) w = x
+      if (!w) return { deny: `No comment with id ${id} on a page you opened.` }
+      const file = `${w.dir}/.review/replies.jsonl`
       const before = String(await $.fs.read(file).catch(() => ''))
       await $.fs.write(file, before + JSON.stringify({ id, at: new Date().toISOString(), text }) + '\n')
       return { result: 'The answer is on the page.' }
@@ -883,6 +1018,10 @@ export const register: Register = (on) => {
 
   on('turn.complete', async ($, e, next) => {
     const result = await next(e)
+    if (!e.agentId && S.root) {
+      const p = await readProduct($)
+      if (p.confirmed && p.refresh && await productChanged($)) await inBackground($, p.refresh)
+    }
     if (!e.agentId) {
       await save($, { state: 'stopped', reason: e.reason, said: clip(e.answer, 300) },
         { who: 'agent', stopped: e.reason, answer: e.answer, ms: e.durationMs, turn: e.turnId })
@@ -899,6 +1038,23 @@ export const register: Register = (on) => {
       $.ui.invalidate('ui.render')
     }
     return result
+  })
+
+  // A show or reply call is one line in the terminal, saying what went to the page; what went there stays
+  // out of the terminal.
+  on('ui.render', { component: 'ToolUse' }, ($, e, next) => {
+    if (e.props.tool !== SHOW_TOOL && e.props.tool !== REPLY_TOOL) return next(e)
+    const { Box, Text } = $.ui.resolve(e)
+    const title = String((e.props.input as Record<string, unknown> | undefined)?.title ?? '')
+    const what = e.props.tool === SHOW_TOOL ? `放到右边：${title}` : '在右边页面上答了你的意见'
+    return h(Box, { flexDirection: 'row' },
+      h(Text, { color: e.props.isErrored ? 'red' : '#d6a8ff' }, '◆ '),
+      h(Text, {}, e.props.isErrored ? `没成功：${what}` : what)) as RenderElement
+  })
+  on('ui.render', { component: 'ToolResult' }, ($, e, next) => {
+    if ((e.props.tool !== SHOW_TOOL && e.props.tool !== REPLY_TOOL) || e.props.isErrored) return next(e)
+    const { Box } = $.ui.resolve(e)
+    return h(Box, {}) as RenderElement
   })
 
   // The band right above where the user types: what they need to do now, and a key to do it.

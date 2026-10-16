@@ -5,53 +5,25 @@
 ## What this is
 
 A Claude Code plugin that follows one product idea from a sentence to users
-being able to use it. The user is a product person: they own what users see
-and do; the agent owns everything inside the box. The user types one command,
-`/yishuship`: `skills/yishuship` reads `scripts/ideas.py --route` and hands off
-to one of three steps (also invocable directly):
+being able to use it. The user owns what users see and do; the agent owns
+everything inside the box. Read the code for how: `skills/` (what the agent is
+told), `hooks/register.ts` (what runs inside Claude Code; only with
+`CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1`), `scripts/` (everything deterministic).
 
-- `skills/idea` — shape a new idea into behaviors, a first slice, a decision.
-- `skills/next` — move the current idea one verified step (slice, decision, ship).
-- `skills/ideas` — list every idea across projects.
+## Decisions the code does not show
 
-`hooks/register.ts` runs inside Claude Code (early access: only with
-`CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1`): it watches every step of the agent,
-writes `.ship/live/` (kept out of git), and draws what the user must do now
-above the input box. It also registers three tools. `board` shows a live board above the
-prompt: the behaviors the user confirmed, what the agent does now and for
-which behavior, a rhythm strip of its tool calls, edits outside the planned
-areas, and for an optimization task the metric as aligned step bars against the
-target; a number counts as measured only when the module saw its command run
-this session, and which steps to point out is the agent's call, its reason
-shown. `review` serves a folder of agent-made pages through `scripts/review.py`
-and opens one beside the terminal: every part gets a 「说一句」 button, and so
-do words the user selects or one element they click; each comment comes back to
-the agent as a prompt with what it points at, and `reply` puts the answer next
-to that part. The page reloads itself, at the same place, when the agent
-changes a file in its folder. The terminal is for status; anything to look at closely goes on a
-page (in this terminal, clicks do not reach the band and pictures there are too
-small to read). In a project without `.ship/ideas` only the board shows. `scripts/page.py` reads the same files for the page and
-tells cmux (sidebar status, a flash, typing a confirmed reply). Without the
-flag everything falls back to the progress file.
-
-The user's corrections are kept per project: after every turn the hooks
-module has a small model read what the user said against the agent's last
-answer and suggests a rule for each correction (`.ship/记录.jsonl`, committed,
-no quotes; their words stay in `.ship/live/原话.jsonl`). Rules the user
-confirms on the page go to `.ship/规则.md` (this project) or
-`~/.yishuship/规则.md` (every project) and into every turn's context.
-
-`skills/shared/*.md` hold the management rules all three follow: when and how
-to stop and ask, what "done" must show, the progress file. `INDEX.md` maps each
-moment of the work (writing code, designing, a bug, a release, verifying a
-running app) to where the method lives; `~/.yishuship/INDEX.md` holds the same
-kind of rows for paths on the user's machine. `docs/` holds yishuship's own
-method notes that the index points at. `scripts/` hold everything
-deterministic.
-
-Engineering habits (debugging, planning, review, reading) come from Waza
-(`hunt`, `think`, `check`, `read`) installed separately; do not re-implement
-them here, and refer to them only by skill name.
+- The terminal is for short lines; anything the user should look at goes on
+  the page beside it. In this terminal clicks do not reach the band, and
+  pictures there are too small to read.
+- The user's corrections are committed as rules without their words; what
+  they said stays in `.ship/live/`, out of git.
+- Engineering habits (debugging, planning, review, reading) come from Waza
+  (`hunt`, `think`, `check`, `read`), installed separately. Do not
+  re-implement them here; refer to them only by skill name.
+- No docs that explain how the code works: make the code say it. Where things
+  stand is read from git, tests and the running product, not written by hand.
+  Keep only what code cannot hold: the user's decisions, reasons and intent,
+  short.
 
 ## Rules for changing it
 
